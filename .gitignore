@@ -1,0 +1,4 @@
+# .gitignore
+server/config/tradenest-afc77-firebase-adminsdk-fbsvc-8bbc10858f.json
+
+.env
