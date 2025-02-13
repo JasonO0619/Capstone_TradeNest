@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { auth } from './firebaseConfig';  // Import Firebase authentication
+import { auth } from './firebaseConfig';  
 
-// Import screens
+
 import LoginPage from './screens/LoginPage';
 import HomeScreen from './screens/HomeScreen';
 import ForgetPassword from './screens/ForgetPassword';
@@ -24,35 +24,37 @@ import ProfilePictureUpload from './screens/ProfilePictureUpload';
 import OptionsScreen from './screens/OptionsScreen';
 import LostAndFoundScreen from './screens/LostAndFoundHomeScreen';
 import SellTradeLendScreen from './screens/Sell-Trade-Lend-HomeScreen';
+import Search from './header/Search';
 
 const Stack = createStackNavigator();
 
 const App = () => {
-  const [loading, setLoading] = useState(true);  // Loading state while checking auth status
-  const [user, setUser] = useState(null);  // Store the authenticated user
+  const [loading, setLoading] = useState(true);  
+  const [user, setUser] = useState(null); 
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      setUser(currentUser);  // Set user based on auth state
-      setLoading(false);  // Stop loading once auth state is ready
+      setUser(currentUser);  
+      setLoading(false);  
     });
 
-    return () => unsubscribe();  // Cleanup listener on unmount
+    return () => unsubscribe();  
   }, []);
 
   if (loading) {
-    return null;  // You can show a loading spinner or splash screen here
+    return null;  
   }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={user ? "OptionsScreen" : "Login"}>
+      <Stack.Navigator initialRouteName={user ? "OptionsScreen" : "Login"} screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginPage} />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="ForgetPassword" component={ForgetPassword} />
         <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="ProfilePage" component={ProfilePage} />
         <Stack.Screen name="ItemList" component={ItemList} />
+        <Stack.Screen name="Search" component={Search} />
         <Stack.Screen name="OptionsScreen" component={OptionsScreen} />
         <Stack.Screen name="LostAndFoundScreen" component={LostAndFoundScreen} />
         <Stack.Screen name="SellTradeLendScreen" component={SellTradeLendScreen} />

@@ -24,8 +24,7 @@ export default function ReviewsPage({ navigation }) {
   return (
     <ScrollView style={styles.container}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.goBackButton}>
-        <FontAwesome name="arrow-left" size={24} color="#000" />
-        <Text style={styles.goBackText}>Go Back</Text>
+        <FontAwesome name="arrow-left" size={24} color="#fff" left='5' top='20' paddingBottom='10' />
       </TouchableOpacity>
 
       <Text style={styles.title}>Customer Reviews</Text>
@@ -45,7 +44,7 @@ export default function ReviewsPage({ navigation }) {
 
       <TextInput
         style={styles.textInput}
-        placeholder="Write a review"
+        placeholder="Write a review here..."
         multiline
         value={review}
         onChangeText={setReview}
@@ -96,10 +95,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: '#fff',
+
   },
   reviewCount: {
     fontSize: 16,
-    color: '#555',
+    color: '#fff',
     marginBottom: 20,
   },
   ratingSection: {
@@ -114,6 +115,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     height: 100,
     textAlignVertical: 'top',
+    color: '#fff',
+    backgroundColor: '#FFF',
   },
   submitButton: {
     backgroundColor: '#28a745',

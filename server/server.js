@@ -1,17 +1,17 @@
 const express = require('express');
-const multer = require('multer'); // Multer middleware for handling file uploads
+const multer = require('multer'); 
 const { createUser, signInUser, verifyIdToken } = require('./auth');
 const { addDocument } = require('./firestore');
 const { uploadFile } = require('./storage');
 const path = require('path');
 
-// Set up multer for file upload (temporary storage)
+
 const upload = multer({ dest: 'uploads/' });
 
 const app = express();
 app.use(express.json());
 
-// Route to create a user
+
 app.post('/createUser', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -22,35 +22,56 @@ app.post('/createUser', async (req, res) => {
   }
 });
 
-// Route to add a post to Firestore
-app.post('/addPost', async (req, res) => {
-  try {
-    const { title, content } = req.body;
-    const postId = await addDocument('posts', { title, content });
-    res.status(201).json({ message: 'Post added', postId });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+
+app.post("/addPost", async (req, res) => {
+    try {
+        const { postType, postData } = req.body;
+
+        
+        const validPostTypes = ["sell", "trade", "lend", "lost"];
+        if (!validPostTypes.includes(postType)) {
+            return res.status(400).json({ error: "Invalid post type." });
+        }
+
+       
+        if (!postData.createdAt) {
+            postData.createdAt = new Date().toISOString();
+        }
+
+        const postRef = await db.collection("posts")
+            .doc(postType) 
+            .collection("items")
+            .add(postData);
+
+        res.status(201).json({ message: "Post added successfully", postId: postRef.id });
+    } catch (error) {
+        console.error("Error adding post:", error);
+        res.status(500).json({ error: "Failed to add post" });
+    }
 });
 
-// Route to upload a file to Firebase Storage
+
 app.post('/uploadFile', upload.single('file'), async (req, res) => {
   try {
-    const { file } = req; // Get the uploaded file
-    const filePath = file.path; // Temporary file path
-    const bucketPath = `profile_pictures/${file.originalname}`; // Define path in Firebase Storage
+    const { file } = req; 
+    const { postType } = req.body; 
+    
+    if (!file || !postType) {
+      return res.status(400).json({ error: "Missing file or post type." });
+    }
 
-    // Upload the file to Firebase Storage
-    const uploadedUrl = await uploadFile(filePath, bucketPath);
+    const filePath = file.path; 
+    const fileName = `${Date.now()}_${file.originalname}`;
+    
+   
+    const uploadedUrl = await uploadFile(filePath, postType, fileName);
 
-    // Respond with the URL of the uploaded file
-    res.status(200).json({ message: uploadedUrl });
+    res.status(200).json({ url: uploadedUrl }); 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Start the server
 app.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
+  console.log(`Server running on http://localhost:3000`);
 });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Switch, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 
 const Settings = ({ navigation }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -12,6 +13,9 @@ const Settings = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                       <FontAwesome name="arrow-left" size={25} color="#fff" left='10' />      
+                     </TouchableOpacity>
       <Text style={styles.title}>Settings</Text>
       <View style={styles.settingItem}>
         <Text style={styles.settingText}>Dark Mode</Text>
@@ -21,9 +25,6 @@ const Settings = ({ navigation }) => {
         <Text style={styles.settingText}>Enable Notifications</Text>
         <Switch value={isNotificationsEnabled} onValueChange={(value) => setIsNotificationsEnabled(value)} />
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleLogOut}>
-        <Text style={styles.buttonText}>Log Out</Text>
-      </TouchableOpacity>
       <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={() => Alert.alert('Are you sure?', 'This action cannot be undone.', [{ text: 'Cancel' }, { text: 'Delete Account', onPress: () => Alert.alert('Account deleted') }])}>
         <Text style={styles.buttonText}>Delete Account</Text>
       </TouchableOpacity>
@@ -41,7 +42,7 @@ const styles = StyleSheet.create({
     title: {
       fontSize: 28,
       fontWeight: 'bold',
-      color: '#333',
+      color: '#fff',
       marginBottom: 32,
       textAlign: 'center',
     },

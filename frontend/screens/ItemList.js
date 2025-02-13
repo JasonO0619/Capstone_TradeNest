@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator} from "react-native";
-import { getFirestore, collection, query, where, onSnapshot } from "firebase/firestore"; // ✅ Use Firebase Web SDK
-import { firestore } from "../firebaseConfig"; // ✅ Import Firestore instance
+import { getFirestore, collection, query, where, onSnapshot } from "firebase/firestore"; // 
+import { firestore } from "../firebaseConfig"; 
 import HeadNav from "../header/HeadNav";
 
 const ItemList = ({ route, navigation }) => {
@@ -23,7 +23,7 @@ const ItemList = ({ route, navigation }) => {
       setLoading(false);
     });
 
-    return () => unsubscribe(); // Cleanup on unmount
+    return () => unsubscribe(); 
   }, [category]);
 
   const renderItem = ({ item }) => (
@@ -38,6 +38,9 @@ const ItemList = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <FontAwesome name="arrow-left" size={25} color="#fff" left='10' />      
+              </TouchableOpacity>
       <HeadNav navigation={navigation} />
       <Text style={styles.title}>{category} ITEMS LIST</Text>
       {loading ? (

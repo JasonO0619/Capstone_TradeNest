@@ -65,7 +65,6 @@ export default function ProfilePage({ navigation }) {
   return (
     <View style={styles.container}>
       <HeadNav navigation={navigation} currentScreen="ProfilePage" />
-
       <ScrollView>
         <View style={styles.profileSection}>
           <View style={styles.avatarPlaceholderContainer}>
@@ -192,6 +191,7 @@ const styles = StyleSheet.create({
   },
   menuSection: {
     marginTop: 20,
+    alignItems:'center'
   },
   menuItem: {
     flexDirection: 'row',

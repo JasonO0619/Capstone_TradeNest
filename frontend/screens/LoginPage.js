@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Alert, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { auth } from '../firebaseConfig'; 
-import { signInWithEmailAndPassword } from "firebase/auth"; 
+const { signInWithEmailAndPassword } = require('firebase/auth');
+const { auth } = require('../firebaseConfig'); 
+
 const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,16 +14,21 @@ const LoginPage = ({ navigation }) => {
   const handleSignIn = async () => {
     if (!email) return showPopup('Please enter your email.');
     if (!password) return showPopup('Please enter your password.');
-
+  
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
       showPopup('Login Successful');
-      navigation.navigate('OptionsScreen'); 
+      setTimeout(() => {
+        navigation.replace('OptionsScreen');
+      }, 500); 
+  
     } catch (error) {
       showPopup('Invalid Login Credentials.');
       console.error(error.message);
     }
   };
+  
 
   return (
     <View style={styles.container}>
@@ -56,7 +62,7 @@ const LoginPage = ({ navigation }) => {
       </TouchableOpacity>
 
       <View style={styles.linkContainer}>
-        <TouchableOpacity onPress={() => navigation.navigate('ForgetPassword')}>
+        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
           <Text style={styles.link}>Forgot password?</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
@@ -66,6 +72,7 @@ const LoginPage = ({ navigation }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

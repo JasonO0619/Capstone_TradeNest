@@ -51,12 +51,11 @@ export default function MyListPage({ navigation }) {
 
   return (
     <View style={styles.container}>
+       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                      <FontAwesome name="arrow-left" size={25} color="#fff" left='10' />      
+        </TouchableOpacity>
      
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <FontAwesome name="arrow-left" size={24} color="#000" />
-          <Text style={styles.backButtonText}>Go back</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>My List</Text>
         <View style={{ width: 24 }} /> 
       </View>
@@ -107,6 +106,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1D4976',
+    paddingTop: '10%'
+  ,
   },
   header: {
     flexDirection: 'row',
@@ -122,12 +123,12 @@ const styles = StyleSheet.create({
   backButtonText: {
     marginLeft: 5,
     fontSize: 16,
-    color: '#000',
+    color: '#fff',
   },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#fff',
     textAlign: 'center',
     flex: 1,
   },

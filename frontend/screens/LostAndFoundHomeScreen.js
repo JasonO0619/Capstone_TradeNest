@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Image } from 'react-native';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../firebaseConfig';
 import { isToday, isYesterday, isWithinInterval, subDays } from 'date-fns';
 import HeadNav from '../header/HeadNav';
@@ -12,14 +12,18 @@ const LostAndFoundScreen = ({ navigation }) => {
   useEffect(() => {
     const q = query(
       collection(firestore, 'posts/lost/items'), 
-      orderBy('timestamp', 'desc')
+      orderBy('foundDate', 'desc') 
     );
 
     const unsubscribe = onSnapshot(q, snapshot => {
-      const fetchedItems = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const fetchedItems = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          foundDate: data.foundDate ? data.foundDate.toDate() : null, 
+        };
+      });
       setItems(fetchedItems);
       setLoading(false);
     });
@@ -27,15 +31,15 @@ const LostAndFoundScreen = ({ navigation }) => {
     return () => unsubscribe();
   }, []);
 
- 
+  
   const categorizePosts = () => {
     const today = [];
     const yesterday = [];
     const earlierThisWeek = [];
 
     items.forEach(item => {
-      if (!item.timestamp) return; 
-      const itemDate = item.timestamp.toDate ? item.timestamp.toDate() : new Date(item.timestamp);
+      if (!item.foundDate) return; 
+      const itemDate = item.foundDate;
 
       if (isToday(itemDate)) {
         today.push(item);
@@ -47,9 +51,9 @@ const LostAndFoundScreen = ({ navigation }) => {
     });
 
     return {
-      today: today || [],
-      yesterday: yesterday || [],
-      earlierThisWeek: earlierThisWeek || [],
+      today,
+      yesterday,
+      earlierThisWeek,
     };
   };
 
@@ -62,15 +66,14 @@ const LostAndFoundScreen = ({ navigation }) => {
     return (
       <TouchableOpacity
         style={styles.postCard}
-        onPress={() => navigation.navigate('PostDetail', { item })}
+        onPress={() => navigation.navigate('PostDetailPage', { item })}
       >
         <Image 
-          source={{ uri: item.image && typeof item.image === 'string' ? item.image : 'https://via.placeholder.com/150' }} 
+         source={{ uri: item.images && item.images.length > 0 ? item.images[0] :  'https://via.placeholder.com/150' }} 
           style={styles.postImage} 
         />
         <Text style={styles.postTitle}>{item.title ? String(item.title) : "Untitled Post"}</Text>
         <Text style={styles.location}>{item.locationFound ? String(item.locationFound) : "Unknown Location"}</Text>
-        <Text style={styles.likes}>❤️ {item.likes ? String(item.likes) : "0"}</Text>
       </TouchableOpacity>
     );
   };
@@ -91,12 +94,14 @@ const LostAndFoundScreen = ({ navigation }) => {
         </View>
 
         {data.length > 0 ? (
-          <FlatList
-            data={data.slice(0, 4)}
-            renderItem={renderPostCard}
-            keyExtractor={(item) => item.id ? String(item.id) : Math.random().toString(36).substring(7)}
-            numColumns={2}
-          />
+           <FlatList
+                  data={data} 
+                  renderItem={renderPostCard}
+                  keyExtractor={(item) => item.id}
+                  horizontal={true} 
+                  showsHorizontalScrollIndicator={false} 
+                  contentContainerStyle={{ paddingHorizontal: 10 }} 
+                />
         ) : (
           <Text style={styles.noItemsText}>No posts available.</Text>
         )}
@@ -113,11 +118,11 @@ const LostAndFoundScreen = ({ navigation }) => {
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
         <View>
-          {renderCategorySection('Items from TODAY:', today)}
+          {renderCategorySection('Items found TODAY:', today)}
           <View style={styles.spaceBetweenSections} />
-          {renderCategorySection('Items from YESTERDAY:', yesterday)}
+          {renderCategorySection('Items found YESTERDAY:', yesterday)}
           <View style={styles.spaceBetweenSections} />
-          {renderCategorySection('Items from EARLIER THIS WEEK:', earlierThisWeek)}
+          {renderCategorySection('Items found EARLIER THIS WEEK:', earlierThisWeek)}
         </View>
       )}
     </View>
@@ -150,12 +155,13 @@ const styles = StyleSheet.create({
     color: '#1E90FF',
   },
   postCard: {
-    flex: 1,
+    width: 150, 
     backgroundColor: '#F5F5F5',
     borderRadius: 10,
-    margin: 5,
+    marginRight: 10, 
     padding: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   postImage: {
     width: 100,

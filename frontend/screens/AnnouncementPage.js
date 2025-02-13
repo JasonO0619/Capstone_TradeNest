@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { FontAwesome } from '@expo/vector-icons';
 
 export default function AnnouncementsPage({ navigation }) {
-  // Sample data for announcements
+  
   const announcements = [
     { id: '1', title: 'Title 1', content: 'Some text....' },
     { id: '2', title: 'Title 2', content: 'Some text....' },
@@ -13,11 +13,10 @@ export default function AnnouncementsPage({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <FontAwesome name="arrow-left" size={25} color="#fff" left='10' />      
+              </TouchableOpacity>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <FontAwesome name="arrow-left" size={24} color="#000" />
-          <Text style={styles.backButtonText}>Go back</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>Announcements</Text>
         <View style={{ width: 24 }} /> 
       </View>
@@ -59,7 +58,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#fff',
     textAlign: 'center',
     flex: 1,
   },

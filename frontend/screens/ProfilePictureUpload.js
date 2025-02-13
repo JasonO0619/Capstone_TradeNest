@@ -7,7 +7,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore, storage } from '../firebaseConfig';
 
 
-const DEFAULT_PROFILE_PIC_URL = "https://firebasestorage.googleapis.com/v0/b/tradenest-afc77.appspot.com/o/profile_pictures%2Fdefault_pro_pic.jpg?alt=media&token=c65c9f67-5e05-4310-91dd-9995551d9407";
+const DEFAULT_PROFILE_PIC_URL = "https://firebasestorage.googleapis.com/v0/b/tradenest-afc77.firebasestorage.app/o/profile_pictures%2Fprofile-icon-vector.jpg?alt=media&token=1ee46c80-7fb9-4035-90f3-50049f4c4a2festorage.googleapis.com/v0/b/tradenest-afc77.appspot.com/o/profile_pictures%2Fdefault_pro_pic.jpg?alt=media&token=c65c9f67-5e05-4310-91dd-9995551d9407";
 
 const ProfilePictureUpload = ({ navigation, route }) => {
   const { firstName, lastName, email, password } = route.params;

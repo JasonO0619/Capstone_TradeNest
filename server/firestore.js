@@ -1,7 +1,7 @@
-// firestore.js
+
 const { db, auth } = require('./firebaseAdminConfig');
 
-// Function to add a new post document to the appropriate subcollection
+
 const addPost = async (postType, postData) => {
   try {
     const validPostTypes = ['selling', 'trading', 'lending', 'found-items'];
@@ -23,7 +23,7 @@ const addPost = async (postType, postData) => {
   }
 };
 
-// Function to get a post by its ID
+
 const getPostById = async (postType, postId) => {
   try {
     const validPostTypes = ['selling', 'trading', 'lending', 'found-items'];
@@ -48,7 +48,6 @@ const getPostById = async (postType, postId) => {
   }
 };
 
-// Function to update a post by its ID
 const updatePost = async (postType, postId, updatedData) => {
   try {
     const validPostTypes = ['selling', 'trading', 'lending', 'found-items'];
@@ -69,7 +68,6 @@ const updatePost = async (postType, postId, updatedData) => {
   }
 };
 
-// Function to create a new user and save their details in Firestore
 const createUser = async (email, password, firstName, lastName, username, profilePictureUrl) => {
   try {
     const userRecord = await auth.createUser({

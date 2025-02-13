@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../firebaseConfig';
@@ -9,87 +9,95 @@ const SellTradeLendScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const categories = ["sell", "trade", "lend"]; 
-    let unsubscribeFns = [];
-  
-    const fetchItems = () => {
-      try {
-        categories.forEach((category) => {
-          const q = query(
-            collection(firestore, `posts/${category}/items`), 
-            orderBy("createdAt", "desc") 
-          );
-  
-          const unsubscribe = onSnapshot(q, (snapshot) => {
-            let categoryItems = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              category, 
-              ...doc.data(),
-            }));
-  
-            
-            setItems((prevItems) => {
-              let filteredItems = prevItems.filter((item) => item.category !== category);
-              return [...filteredItems, ...categoryItems];
-            });
-  
-            setLoading(false);
+    const categories = ["sell", "trade", "lend"];
+    const unsubscribeFns = [];
+
+    try {
+      categories.forEach((formType) => {
+        const q = query(
+          collection(firestore, `posts/${formType}/items`),
+          orderBy("createdAt", "desc")
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const formTypeItems = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            formType,
+            ...doc.data(),
+          }));
+
+          setItems((prevItems) => {
+            const filteredItems = prevItems.filter((item) => item.formType !== formType);
+            return [...filteredItems, ...formTypeItems];
           });
-  
-          unsubscribeFns.push(unsubscribe);
+
+          setLoading(false);
         });
-      } catch (error) {
-        console.error("Error fetching items:", error);
-        setLoading(false);
-      }
-    };
-  
-    fetchItems();
-  
-    return () => unsubscribeFns.forEach((unsubscribe) => unsubscribe()); 
+
+        unsubscribeFns.push(unsubscribe);
+      });
+    } catch (error) {
+      console.error("Error fetching items:", error);
+      setLoading(false);
+    }
+
+    return () => unsubscribeFns.forEach((unsubscribe) => unsubscribe());
   }, []);
 
+  const categorizedItems = useMemo(() => ({
+    sell: items.filter((item) => item.formType === "sell"),
+    lend: items.filter((item) => item.formType === "lend"),
+    trade: items.filter((item) => item.formType === "trade"),
+  }), [items]);
 
-  const renderPostCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.postCard}
-      onPress={() => navigation.navigate('PostDetailPage', { item })}
-    >
-      <Image
-        source={{ uri: item.images && item.images.length > 0 ? item.images[0] : 'https://via.placeholder.com/150' }}
-        style={styles.postImage}
-      />
-      <Text style={styles.postTitle}>{item.title || 'Untitled Post'}</Text>
-      <Text style={styles.postPrice}>${item.price || 'N/A'}</Text>
-      <Text style={styles.likes}>❤️ {item.likes || '0'}</Text>
-    </TouchableOpacity>
-  );
+  const renderPostCard = ({ item }) => {
+    const displayInfo = item.formType === "sell"
+      ? `$${item.price || "N/A"}`
+      : item.formType === "lend"
+      ? `Lending Period: ${item.lendingPeriod || "N/A"}`
+      : `Looking for: ${item.tradeInterest || "N/A"}`;
 
-  const renderCategorySection = (categoryTitle, categoryFilter) => {
-    const filteredItems = items.filter((item) => item.category === categoryFilter);
+    return (
+      <TouchableOpacity
+        style={styles.postCard}
+        onPress={() => navigation.navigate("PostDetailPage", { item })}
+      >
+        <Image
+          source={{ uri: item.images?.length ? item.images[0] : "https://via.placeholder.com/150" }}
+          style={styles.postImage}
+        />
+        <Text style={styles.postTitle}>{item.title || "Untitled Post"}</Text>
+        <Text style={styles.postPrice}>{displayInfo}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderCategorySection = (categoryTitle, categoryType) => {
+    const filteredItems = categorizedItems[categoryType];
 
     return (
       <View style={styles.categoryContainer}>
         <View style={styles.categoryHeader}>
-          <Text style={styles.categoryTitle}>{categoryTitle || 'Unknown Category'}</Text>
+          <Text style={styles.categoryTitle}>{categoryTitle}</Text>
           {filteredItems.length > 4 && (
-            <TouchableOpacity onPress={() => navigation.navigate('CategoryList', { category: categoryFilter })}>
+            <TouchableOpacity onPress={() => navigation.navigate('CategoryList', { formType: categoryType })}>
               <Text style={styles.viewMore}>View More →</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {filteredItems.length > 0 ? (
-        <FlatList
-          data={filteredItems.slice(0, 4)}
-          renderItem={renderPostCard}
-          keyExtractor={(item) => item.id}
-          numColumns={2}  
-          columnWrapperStyle={{ justifyContent: "space-between" }}
-        />
-      ) : (
-        <Text style={styles.noItemsText}>No posts available.</Text>
-      )}
+          <FlatList
+            data={filteredItems}
+            renderItem={renderPostCard}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 10 }}
+          />
+        ) : (
+          <Text style={styles.noItemsText}>No posts available.</Text>
+        )}
       </View>
     );
   };
@@ -102,11 +110,11 @@ const SellTradeLendScreen = ({ navigation }) => {
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
         <View>
-          {renderCategorySection('Items for sale:', 'sell')}
+          {renderCategorySection("Items for Sale", "sell")}
           <View style={styles.spaceBetweenSections} />
-          {renderCategorySection('Items for lending:', 'lend')}
+          {renderCategorySection("Items for Lending", "lend")}
           <View style={styles.spaceBetweenSections} />
-          {renderCategorySection('Items for trading:', 'trade')}
+          {renderCategorySection("Items for Trading", "trade")}
         </View>
       )}
     </View>
@@ -128,7 +136,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 3,
   },
   categoryTitle: {
     fontSize: 20,
@@ -137,19 +145,19 @@ const styles = StyleSheet.create({
   },
   viewMore: {
     fontSize: 14,
-    color: '#1E90FF',
+    color: 'lightblue',
   },
   postCard: {
-    width: "48%",  // ✅ Ensures two cards per row with spacing
+    width: 150,
     backgroundColor: '#F5F5F5',
     borderRadius: 10,
-    marginBottom: 10,
+    marginRight: 10,
     padding: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   postImage: {
-    width: "100%",  // ✅ Ensures image fits the card width
+    width: "100%",
     height: 100,
     borderRadius: 10,
     marginBottom: 5,
@@ -181,9 +189,8 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",  // ✅ Ensures spacing between columns
+    justifyContent: "space-between",
   },
 });
-
 
 export default SellTradeLendScreen;

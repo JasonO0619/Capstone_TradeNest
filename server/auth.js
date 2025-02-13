@@ -1,8 +1,7 @@
-// auth.js
 
 const { auth } = require('./firebaseAdminConfig');
 
-// Function to create a new user
+
 const createUser = async (email, password) => {
   try {
     const userRecord = await auth.createUser({
@@ -15,12 +14,12 @@ const createUser = async (email, password) => {
   }
 };
 
-// Function to authenticate an existing user with email and password
+
 const signInUser = async (email) => {
   try {
     const userRecord = await auth.getUserByEmail(email);
     if (userRecord) {
-      // Implement your custom password check or token validation logic here
+      
       return userRecord;
     } else {
       throw new Error("User not found");
@@ -30,7 +29,7 @@ const signInUser = async (email) => {
   }
 };
 
-// Function to verify ID token from Firebase authentication
+
 const verifyIdToken = async (idToken) => {
   try {
     const decodedToken = await auth.verifyIdToken(idToken);

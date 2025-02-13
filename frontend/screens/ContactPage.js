@@ -6,6 +6,9 @@ export default function ContactPage({navigation}) {
   const user = { name: 'admin' }
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                      <FontAwesome name="arrow-left" size={25} color="#fff" left='10' />      
+        </TouchableOpacity>
       <View style={styles.header}>
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
       <FontAwesome name="arrow-left" size={24} color="#000" />

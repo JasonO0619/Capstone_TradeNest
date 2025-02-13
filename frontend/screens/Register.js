@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 
 const Register = ({ navigation }) => {
   const [firstName, setFirstName] = useState('');
@@ -22,6 +23,9 @@ const Register = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                      <FontAwesome name="arrow-left" size={25} color="#fff" right='170' bottom='100' />      
+                    </TouchableOpacity>
       <Text style={styles.title}>Register</Text>
 
       <TextInput style={styles.input} placeholder="First Name..." value={firstName} onChangeText={setFirstName} />

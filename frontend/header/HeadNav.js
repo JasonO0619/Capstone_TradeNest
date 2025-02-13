@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { Picker } from '@react-native-picker/picker';  
+import { View, StyleSheet, TouchableOpacity, Image, Text } from 'react-native';
 import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { firestore } from '../firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 
 const HeadNav = ({ navigation, currentScreen }) => {
-  const [selectedScreen, setSelectedScreen] = useState(currentScreen || "SellTradeLendScreen");
   const [profilePic, setProfilePic] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const auth = getAuth();
@@ -16,56 +15,73 @@ const HeadNav = ({ navigation, currentScreen }) => {
       if (user) {
         const userDocRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
+        const newProfilePic = userDoc.exists() && userDoc.data().profilePic ? userDoc.data().profilePic : user.photoURL;
 
-        if (userDoc.exists() && userDoc.data().profilePic) {
-          setProfilePic(userDoc.data().profilePic);
-        } else {
-          setProfilePic(user.photoURL); 
+        if (newProfilePic !== profilePic) { 
+          setProfilePic(newProfilePic);
         }
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [profilePic]);
 
-  const handleScreenChange = (screen) => {
-    setSelectedScreen(screen);
-    navigation.navigate(screen);
-  };
+  if (loading) {
+    return <View style={{ height: 50 }} />;
+  }
 
-  const handleHomePress = () => {
-    if (currentScreen !== "LostAndFoundScreen") {
-      navigation.navigate("SellTradeLendScreen");
+  
+  const isBackButton = ["Search", "ProfilePage", "CreateFormPage"].includes(currentScreen);
+
+  const handleHomeOrBackPress = () => {
+    if (isBackButton) {
+      navigation.goBack();
+    } else {
+      if (currentScreen === "LostAndFoundScreen") {
+        navigation.replace("SellTradeLendScreen");
+      } else {
+        navigation.replace("LostAndFoundScreen");
+      }
     }
   };
 
+  const screenTitleMap = {
+    "SellTradeLendScreen": "Marketplace Home",
+    "LostAndFoundScreen": "Lost & Found Home",
+    "Search": "Search Items",
+    "ProfilePage": "Your Profile",
+    "CreateFormPage": "Create a Post",
+  };
+
+  const screenTitle = screenTitleMap[currentScreen] || "";
+
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={handleHomePress}>
-        <FontAwesome name="home" size={24} color="#333" style={styles.icon} />
+      {/* 🏠 Home or 🔙 Back Button */}
+      <TouchableOpacity onPress={handleHomeOrBackPress}>
+        <FontAwesome 
+          name={isBackButton ? "chevron-left" : "home"} 
+          size={30} 
+          color="#333" 
+          style={styles.icon} 
+        />
       </TouchableOpacity>
 
-      <View style={styles.dropdownContainer}>
-        <Picker
-          selectedValue={selectedScreen}
-          style={styles.picker}
-          itemStyle={styles.pickerItem} 
-          onValueChange={(itemValue) => handleScreenChange(itemValue)}
-        >
-          <Picker.Item label="Sell / Trade / Lend" value="SellTradeLendScreen" />
-          <Picker.Item label="Lost & Found" value="LostAndFoundScreen" />
-        </Picker>
-      </View>
+    
+      <Text style={styles.screenTitle}>{screenTitle}</Text>
 
+   
       <View style={styles.rightIcons}>
-        {/* 🔍 Search */}
-        <TouchableOpacity onPress={() => navigation.navigate('Search')}>
-          <Ionicons name="search" size={24} color="#333" style={styles.icon} />
-        </TouchableOpacity>
+        {currentScreen !== "Search" && (
+          <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+            <Ionicons name="search" size={30} color="#333" style={styles.icon} />
+          </TouchableOpacity>
+        )}
 
-        {currentScreen !== "CreateFormPage" && (
+        {currentScreen !== "CreateFormPage" && currentScreen !== "OptionsScreen" && (
           <TouchableOpacity onPress={() => navigation.navigate('CreateFormPage')}>
-            <MaterialIcons name="add-box" size={24} color="#FF4081" style={styles.icon} />
+            <MaterialIcons name="add-box" size={30} color="#FF4081" style={styles.icon} />
           </TouchableOpacity>
         )}
 
@@ -83,43 +99,33 @@ const HeadNav = ({ navigation, currentScreen }) => {
   );
 };
 
-
+// 🔹 Styles
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', 
     alignItems: 'center',
     justifyContent: 'space-between', 
     backgroundColor: '#E0F7FA',
-    paddingHorizontal: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
+    paddingHorizontal: 10, 
+    height: '12%',
+    paddingTop: 25
   },
-  dropdownContainer: {
-    flex: 1,
-    marginHorizontal: 16, 
-  },
-  picker: {
-    height: 60,
-    width: '100%',
-    color: '#333',
-    fontSize: 16,
+  screenTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
   },
   rightIcons: {
     flexDirection: 'row', 
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
   icon: {
     marginHorizontal: 8,
   },
   profileImage: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     borderRadius: 16, 
-  },
-  pickerItem: {
-    fontSize: 16,
-    color: '#333', 
   },
 });
 

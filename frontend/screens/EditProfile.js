@@ -117,6 +117,9 @@ export default function EditProfilePage({ navigation }) {
 
   return (
     <View style={styles.container}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                      <FontAwesome name="arrow-left" size={25} color="#fff" left='10' />      
+                    </TouchableOpacity>
     
       <Text style={styles.title}>Edit Profile</Text>
 

@@ -23,11 +23,10 @@ export default function FavouritesPage({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <FontAwesome name="arrow-left" size={24} color="#000" />
-          <Text style={styles.backButtonText}>Go back</Text>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <FontAwesome name="arrow-left" size={25} color="#fff" />      
         </TouchableOpacity>
+      <View style={styles.header}>
         <Text style={styles.title}>Favourite</Text>
         <View style={{ width: 24 }} /> 
       </View>
@@ -93,7 +92,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#fff',
     textAlign: 'center',
     flex: 1,
   },
