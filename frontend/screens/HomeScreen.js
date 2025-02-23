@@ -8,17 +8,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { getFirestore, collection, onSnapshot } from "firebase/firestore"; // ✅ Use Web SDK
-import { firestore } from "../firebaseConfig"; // ✅ Import from firebaseConfig.js
+import { getFirestore, collection, onSnapshot } from "firebase/firestore"; 
+import { firestore } from "../firebaseConfig";
 import HeadNav from "../header/HeadNav";
 
 const HomeScreen = ({ navigation, route }) => {
-  const { selectedOption } = route.params; // Get selected option
+  const { selectedOption } = route.params; 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Determine the collection based on selectedOption
     let collectionName = "";
 
     if (selectedOption === "Lost and Found") {
@@ -39,7 +38,7 @@ const HomeScreen = ({ navigation, route }) => {
       setLoading(false);
     });
 
-    return () => unsubscribe(); // Cleanup on unmount
+    return () => unsubscribe(); 
   }, [selectedOption]);
 
   const renderSquare = ({ item }) => (
