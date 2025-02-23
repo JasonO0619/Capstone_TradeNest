@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform,Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, 
+        Text, 
+        TouchableOpacity, 
+        StyleSheet, 
+        KeyboardAvoidingView, 
+        Platform,Keyboard, 
+        TouchableWithoutFeedback } from 'react-native';
 import HeadNav from '../header/HeadNav';
 
 const OptionsScreen = ({ navigation }) => {
