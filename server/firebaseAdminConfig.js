@@ -8,9 +8,7 @@ if (!process.env.FIREBASE_ADMIN_KEY_PATH) {
   throw new Error('FIREBASE_ADMIN_KEY_PATH environment variable is not set.');
 }
 
-
 const serviceAccountPath = path.resolve(__dirname, process.env.FIREBASE_ADMIN_KEY_PATH);
-
 
 if (!fs.existsSync(serviceAccountPath)) {
   throw new Error(`Service account key file not found at path: ${serviceAccountPath}`);
@@ -26,5 +24,6 @@ admin.initializeApp({
 const db = admin.firestore();
 const auth = admin.auth();
 const messaging = admin.messaging();
+const storage = admin.storage();
 
-module.exports = { admin, db, auth, messaging };
+module.exports = { admin, db, auth, messaging, storage };

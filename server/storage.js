@@ -28,7 +28,6 @@ const uploadFile = async (filePath, postType, fileName) => {
   }
 };
 
-// Function to upload profile picture and return its URL
 const uploadProfilePicture = async (userId, filePath) => {
   try {
     const bucketPath = `profile_pictures/${userId}/${path.basename(filePath)}`;

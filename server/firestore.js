@@ -68,28 +68,25 @@ const updatePost = async (postType, postId, updatedData) => {
   }
 };
 
-const createUser = async (email, password, firstName, lastName, username, profilePictureUrl) => {
+const deletePost = async (postType, postId) => {
   try {
-    const userRecord = await auth.createUser({
-      email: email,
-      password: password,
-    });
+    const validPostTypes = ['selling', 'trading', 'lending', 'found-items'];
 
-    const userData = {
-      firstName: firstName,
-      lastName: lastName,
-      username: username,
-      email: email,
-      profilePicture: profilePictureUrl || '',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
+    if (!validPostTypes.includes(postType)) {
+      throw new Error('Invalid post type.');
+    }
 
-    const userRef = await db.collection('users').doc(userRecord.uid).set(userData);
+    await db
+      .collection('posts')
+      .doc(postType)
+      .collection('items')
+      .doc(postId)
+      .delete();
 
-    return { userRecord, userRef };
+    return 'Post deleted successfully';
   } catch (error) {
-    throw new Error(`Error creating user: ${error.message}`);
+    throw new Error(`Error deleting post: ${error.message}`);
   }
 };
 
-module.exports = { addPost, getPostById, updatePost, createUser };
+module.exports = { addPost, getPostById, updatePost };
