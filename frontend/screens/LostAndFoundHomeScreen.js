@@ -1,92 +1,93 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Image } from 'react-native';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { firestore } from '../firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isToday, isYesterday, isWithinInterval, subDays } from 'date-fns';
 import HeadNav from '../header/HeadNav';
+import BASE_URL from '../BaseUrl';
 
 const LostAndFoundScreen = ({ navigation }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(
-      collection(firestore, 'posts/lost/items'), 
-      orderBy('foundDate', 'desc') 
-    );
+    const fetchLostItems = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const res = await fetch(`${BASE_URL}/api/posts/type/found`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
 
-    const unsubscribe = onSnapshot(q, snapshot => {
-      const fetchedItems = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          foundDate: data.foundDate ? data.foundDate.toDate() : null, 
-        };
-      });
-      setItems(fetchedItems);
-      setLoading(false);
-    });
+        if (!data.posts || !Array.isArray(data.posts)) {
+          throw new Error("Invalid data format: expected { posts: [...] }");
+        }
+    
+        const parsedData = data.posts.map(item => ({
+          ...item,
+          foundDate: item.foundDate ? new Date(item.foundDate) : null,
+        }));
 
-    return () => unsubscribe();
+        setItems(parsedData);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching lost posts:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchLostItems();
   }, []);
 
-  
   const categorizePosts = () => {
     const today = [];
     const yesterday = [];
     const earlierThisWeek = [];
+    const earlier = [];
 
     items.forEach(item => {
-      if (!item.foundDate) return; 
-      const itemDate = item.foundDate;
+      if (!item.foundDate) return;
+      const date = new Date(item.foundDate);
 
-      if (isToday(itemDate)) {
+      if (isToday(date)) {
         today.push(item);
-      } else if (isYesterday(itemDate)) {
+      } else if (isYesterday(date)) {
         yesterday.push(item);
-      } else if (isWithinInterval(itemDate, { start: subDays(new Date(), 7), end: new Date() })) {
+      } else if (isWithinInterval(date, { start: subDays(new Date(), 7), end: new Date() })) {
         earlierThisWeek.push(item);
+      } else {
+        earlier.push(item); 
       }
     });
-
-    return {
-      today,
-      yesterday,
-      earlierThisWeek,
-    };
+  
+    return { today, yesterday, earlierThisWeek, earlier };
   };
 
-  const { today, yesterday, earlierThisWeek } = categorizePosts();
+  const { today, yesterday, earlierThisWeek, earlier } = categorizePosts();
 
-  
   const renderPostCard = ({ item }) => {
-    if (!item) return null; 
-
     return (
       <TouchableOpacity
         style={styles.postCard}
         onPress={() => navigation.navigate('PostDetailPage', { item })}
       >
-        <Image 
-         source={{ uri: item.images && item.images.length > 0 ? item.images[0] :  'https://via.placeholder.com/150' }} 
-          style={styles.postImage} 
+        <Image
+          source={{ uri: item.images?.[0] || 'https://via.placeholder.com/150' }}
+          style={styles.postImage}
         />
-        <Text style={styles.postTitle}>{item.title ? String(item.title) : "Untitled Post"}</Text>
-        <Text style={styles.location}>{item.locationFound ? String(item.locationFound) : "Unknown Location"}</Text>
+        <Text style={styles.postTitle}>{item.title || 'Untitled Post'}</Text>
+        <Text style={styles.location}>{item.locationFound || 'Unknown Location'}</Text>
       </TouchableOpacity>
     );
   };
 
-  
   const renderCategorySection = (title, data) => {
-    if (!Array.isArray(data)) return null; 
+    if (!Array.isArray(data)) return null;
 
     return (
       <View style={styles.categoryContainer}>
         <View style={styles.categoryHeader}>
-          <Text style={styles.categoryTitle}>{title || "Unknown Title"}</Text>
-          {data.length > 4 && navigation && (
+          <Text style={styles.categoryTitle}>{title}</Text>
+          {data.length > 4 && (
             <TouchableOpacity onPress={() => navigation.navigate('CategoryList', { category: 'lost' })}>
               <Text style={styles.viewMore}>View More →</Text>
             </TouchableOpacity>
@@ -94,14 +95,14 @@ const LostAndFoundScreen = ({ navigation }) => {
         </View>
 
         {data.length > 0 ? (
-           <FlatList
-                  data={data} 
-                  renderItem={renderPostCard}
-                  keyExtractor={(item) => item.id}
-                  horizontal={true} 
-                  showsHorizontalScrollIndicator={false} 
-                  contentContainerStyle={{ paddingHorizontal: 10 }} 
-                />
+          <FlatList
+            data={data}
+            renderItem={renderPostCard}
+            keyExtractor={item => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 10 }}
+          />
         ) : (
           <Text style={styles.noItemsText}>No posts available.</Text>
         )}
@@ -111,7 +112,6 @@ const LostAndFoundScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-     
       <HeadNav navigation={navigation} currentScreen="LostAndFoundScreen" />
 
       {loading ? (
@@ -123,6 +123,8 @@ const LostAndFoundScreen = ({ navigation }) => {
           {renderCategorySection('Items found YESTERDAY:', yesterday)}
           <View style={styles.spaceBetweenSections} />
           {renderCategorySection('Items found EARLIER THIS WEEK:', earlierThisWeek)}
+          <View style={styles.spaceBetweenSections} />
+          {renderCategorySection('Items found EARLIER:', earlier)}
         </View>
       )}
     </View>
@@ -191,7 +193,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   spaceBetweenSections: {
-    height: 70,
+    height: 20,
   },
 });
 

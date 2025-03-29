@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { auth, firestore } from '../firebaseConfig';
-import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { auth } from '../firebaseConfig';
+import BASE_URL from '../BaseUrl';
 
 export default function MyListPage({ navigation }) {
   const [category, setCategory] = useState('sell'); 
@@ -13,22 +13,26 @@ export default function MyListPage({ navigation }) {
   
   useEffect(() => {
     if (!userId) return;
-
+  
     setLoading(true);
-    const q = query(collection(firestore, `posts/${category}/items`), where("userId", "==", userId));
+  
+    const fetchUserPosts = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/api/posts/user/${userId}`);
+        const data = await response.json();
+  
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedItems = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setItems(fetchedItems);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [category]);
-
+        const filtered = data.filter(post => post.typeOfPost === category);
+        setItems(filtered);
+      } catch (error) {
+        console.error("Failed to fetch posts", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchUserPosts();
+  }, [category, userId]); // ✅ Make sure `userId` is included in the dependency array
 
   const handleDelete = async (postId) => {
     Alert.alert("Confirm Delete", "Are you sure you want to delete this post?", [
@@ -87,9 +91,18 @@ export default function MyListPage({ navigation }) {
                   style={styles.itemImage}
                 />
                 <Text style={styles.itemTitle}>{item.title || "Untitled Post"}</Text>
-                <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                </TouchableOpacity>
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => navigation.navigate('EditPostPage', { item })}
+                  >
+                    <Text style={styles.editButtonText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.id)}>
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
             ))
           ) : (
@@ -101,7 +114,7 @@ export default function MyListPage({ navigation }) {
   );
 }
 
-// 🔹 Styles
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -150,16 +163,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
-  listContainer: {
-    paddingHorizontal: 20,
-  },
   listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#4db6ac',
-    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    marginVertical: 8,
+    marginHorizontal: 16,
     borderRadius: 10,
-    marginBottom: 15,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   itemImage: {
     width: 60,
@@ -171,7 +187,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 20,
     fontSize: 18,
-    color: '#fff',
+    color: '#000',
   },
   deleteButton: {
     backgroundColor: '#f28b82',
@@ -189,6 +205,23 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 20,
     textAlign: 'center',
+  },
+  buttonGroup: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  
+  editButton: {
+    backgroundColor: '#4A90E2',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  
+  editButtonText: {
+    color: '#fff',
+    fontSize: 14,
   },
 });
 

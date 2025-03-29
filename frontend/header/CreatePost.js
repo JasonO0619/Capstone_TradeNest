@@ -4,6 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome } from '@expo/vector-icons';
 import HeadNav from './HeadNav'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CreatePost({navigation}) {
   const [selectedForm, setSelectedForm] = useState('sell');

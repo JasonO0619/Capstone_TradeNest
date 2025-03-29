@@ -3,11 +3,13 @@ import { View, Text, TouchableOpacity, Image, Alert, StyleSheet } from 'react-na
 import * as ImagePicker from 'expo-image-picker';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore, storage } from '../firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import BASE_URL from '../BaseUrl';
 
 
-const DEFAULT_PROFILE_PIC_URL = "https://firebasestorage.googleapis.com/v0/b/tradenest-afc77.firebasestorage.app/o/profile_pictures%2Fprofile-icon-vector.jpg?alt=media&token=1ee46c80-7fb9-4035-90f3-50049f4c4a2festorage.googleapis.com/v0/b/tradenest-afc77.appspot.com/o/profile_pictures%2Fdefault_pro_pic.jpg?alt=media&token=c65c9f67-5e05-4310-91dd-9995551d9407";
+const DEFAULT_PROFILE_PIC_URL = "https://firebasestorage.googleapis.com/v0/b/tradenest-afc77.firebasestorage.app/o/profile_pictures%2FDefault-profile.jpg?alt=media&token=69582c18-56a2-46f0-a8e0-f29340a9ebc9";
+
 
 const ProfilePictureUpload = ({ navigation, route }) => {
   const { firstName, lastName, email, password } = route.params;
@@ -45,28 +47,66 @@ const ProfilePictureUpload = ({ navigation, route }) => {
   const handleRegister = async () => {
     setUploading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const userId = userCredential.user.uid;
-      let profilePicUrl = DEFAULT_PROFILE_PIC_URL; 
 
-      
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const userId = user.uid;
+  
+
+      let profilePicUrl = DEFAULT_PROFILE_PIC_URL;
       if (profilePic) {
         const uploadedUrl = await uploadImageToFirebase(profilePic, userId);
         if (uploadedUrl) {
           profilePicUrl = uploadedUrl;
+          await AsyncStorage.setItem('profilePic', profilePicUrl);
         }
       }
-
   
-      await setDoc(doc(firestore, "users", userId), {
-        firstName,
-        lastName,
-        email,
-        profilePic: profilePicUrl, 
-      });
 
+      const token = await user.getIdToken();
+      console.log('✅ Token saved:', token);
+      await AsyncStorage.setItem('userToken', token); // ✅ Ensure token is stored
+  
+
+      const registerRes = await fetch(`${BASE_URL}/api/users/register`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          firstName,
+          lastName,
+          username: `${firstName} ${lastName}`,
+          phoneNumber: '',
+          profilePicture: profilePicUrl,
+        }),
+      });
+  
+      if (!registerRes.ok) {
+        const errorText = await registerRes.text();
+        console.error("Backend responded with:", errorText);
+        throw new Error('Failed to register user in backend.');
+      }
+  
+
+      const profileRes = await fetch(`${BASE_URL}/api/users/myProfile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+      if (profileRes.ok) {
+        const userData = await profileRes.json();
+        if (userData.profilePicture) {
+          await AsyncStorage.setItem('profilePic', userData.profilePicture);
+        }
+      } else {
+        console.warn('⚠️ Could not fetch user profile after registration');
+      }
+  
       Alert.alert("Success", "Registration complete!");
       navigation.navigate("OptionsScreen");
+  
     } catch (error) {
       Alert.alert("Error", error.message);
       console.error(error);
@@ -92,7 +132,7 @@ const ProfilePictureUpload = ({ navigation, route }) => {
   );
 };
 
-// 🔹 Styles
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

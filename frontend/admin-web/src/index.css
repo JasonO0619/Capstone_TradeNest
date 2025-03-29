@@ -1,0 +1,86 @@
+:root {
+  --primary-color: linear-gradient(135deg, #338583, #9a908c); /* Warm Orange Gradient */
+  --secondary-color: #1565c0; 
+  --text-color: #1e1e1e; 
+  --bg-color: linear-gradient(135deg, #FFF3E0, #FFE0B2); /* Light Orange Gradient Background */
+  --card-bg: rgba(255, 255, 255, 0.9); 
+  --border-radius: 12px;
+  --transition-speed: 0.3s;
+  --box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+
+
+
+  
+  
+
+
+  font-family: "Inter", Avenir, Helvetica, Arial, sans-serif;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
+
+h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--transition-speed);
+}
+a:hover {
+  color: var(--secondary-color);
+}
+
+button {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: var(--primary-color);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background var(--transition-speed), transform var(--transition-speed);
+  box-shadow: 0 4px 12px rgba(41, 121, 255, 0.3);
+}
+button:hover {
+  background: var(--secondary-color);
+  transform: translateY(-2px);
+}
+button:focus {
+  outline: 3px solid rgba(41, 121, 255, 0.5);
+}
+
+.card {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: var(--border-radius);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  h1 {
+    font-size: 2.2rem;
+  }
+}

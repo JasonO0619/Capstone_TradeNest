@@ -18,6 +18,7 @@ import PostDetailPage from './screens/PostDetailPage';
 import UserPage from './screens/UserPage';
 import AnnouncementsPage from './screens/AnnouncementPage';
 import EditProfile from './screens/EditProfile';
+import EditPostPage from './screens/EditPostPage';
 import ReviewsPage from './screens/ReviewsPage';
 import Settings from './screens/Settings';
 import ProfilePictureUpload from './screens/ProfilePictureUpload';
@@ -25,6 +26,15 @@ import OptionsScreen from './screens/OptionsScreen';
 import LostAndFoundScreen from './screens/LostAndFoundHomeScreen';
 import SellTradeLendScreen from './screens/Sell-Trade-Lend-HomeScreen';
 import Search from './header/Search';
+import Notifications from './header/Notifications';
+import ContactBase from './screens/ContactBase';
+import ContactLend from './screens/ContactLend';
+import ContactSell from './screens/ContactSell';
+import ContactTrade from './screens/ContactTrade';
+import ContactLost from './screens/ContactLost';
+import ConfirmTradeScreen from './screens/ConfirmTradeScreen';
+import ClaimForm from './screens/ClaimForm';
+
 
 const Stack = createStackNavigator();
 
@@ -47,7 +57,7 @@ const App = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={user ? "OptionsScreen" : "Login"} screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName={"Login"} screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginPage} />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="ForgetPassword" component={ForgetPassword} />
@@ -55,6 +65,15 @@ const App = () => {
         <Stack.Screen name="ProfilePage" component={ProfilePage} />
         <Stack.Screen name="ItemList" component={ItemList} />
         <Stack.Screen name="Search" component={Search} />
+        <Stack.Screen name="ClaimForm" component={ClaimForm} />
+        <Stack.Screen name="ContactBase" component={ContactBase}/>
+        <Stack.Screen name="ContactSell" component={ContactSell}/>
+        <Stack.Screen name="ContactTrade" component={ContactTrade}/>
+        <Stack.Screen name="ContactLend" component={ContactLend}/>
+        <Stack.Screen name="ContactLost" component={ContactLost}/>
+        <Stack.Screen name="ConfirmTradeScreen" component={ConfirmTradeScreen}/>
+        <Stack.Screen name="Notifications" component={Notifications}/>
+        <Stack.Screen name="EditPostPage" component={EditPostPage}/>
         <Stack.Screen name="OptionsScreen" component={OptionsScreen} />
         <Stack.Screen name="LostAndFoundScreen" component={LostAndFoundScreen} />
         <Stack.Screen name="SellTradeLendScreen" component={SellTradeLendScreen} />

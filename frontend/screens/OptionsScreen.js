@@ -1,18 +1,53 @@
-import React from 'react';
-import { View, 
-        Text, 
-        TouchableOpacity, 
-        StyleSheet, 
-        KeyboardAvoidingView, 
-        Platform,Keyboard, 
-        TouchableWithoutFeedback } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  ActivityIndicator,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import HeadNav from '../header/HeadNav';
 
 const OptionsScreen = ({ navigation }) => {
+  const [tokenChecked, setTokenChecked] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+  
+    const checkToken = async () => {
+      console.log('[OptionsScreen] Checking for token...');
+      const token = await AsyncStorage.getItem('userToken');
+      console.log('[OptionsScreen] Token:', token?.slice(0, 15) + '...');
+      if (isMounted) {
+        setTokenChecked(true);
+      }
+    };
+  
+    checkToken();
+  
+    return () => {
+      isMounted = false;
+      console.log('[OptionsScreen] Unmounted');
+    };
+  }, []);
+
+  if (!tokenChecked) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1D4976' }}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <HeadNav navigation={navigation} currentScreen="OptionsScreen" />
@@ -38,6 +73,7 @@ const OptionsScreen = ({ navigation }) => {
   );
 };
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -50,7 +86,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 40,
-    color: '#fff'
+    color: '#fff',
   },
   button: {
     backgroundColor: '#2196F3',

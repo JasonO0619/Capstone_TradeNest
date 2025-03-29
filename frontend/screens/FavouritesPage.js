@@ -1,25 +1,63 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, ActivityIndicator,
+} from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import BASE_URL from '../BaseUrl';
 
 export default function FavouritesPage({ navigation }) {
   const [selectedTab, setSelectedTab] = useState('Post');
+  const [favoritePosts, setFavoritePosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const postData = [
-    { id: '1', title: 'Post Item 1' },
-    { id: '2', title: 'Post Item 2' },
-    { id: '3', title: 'Post Item 3' },
-    { id: '4', title: 'Post Item 4' },
-  ];
+  useEffect(() => {
+    fetchFavoritePosts();
+  }, []);
 
-  const userData = [
-    { id: '1', title: 'User Item A' },
-    { id: '2', title: 'User Item B' },
-    { id: '3', title: 'User Item C' },
-    { id: '4', title: 'User Item D' },
-  ];
+  const fetchFavoritePosts = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('userToken');
 
-  const items = selectedTab === 'Post' ? postData : userData;
+
+      const res = await fetch(`${BASE_URL}/api/favorites`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const postIds = await res.json();
+
+
+      const fetchedPosts = await Promise.all(
+        postIds.map(async (postId) => {
+          const res = await fetch(`${BASE_URL}/api/posts/${postId}`);
+          return await res.json();
+        })
+      );
+
+      setFavoritePosts(fetchedPosts);
+    } catch (err) {
+      console.error('Failed to load favorite posts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeFavorite = async (postId) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      await fetch(`${BASE_URL}/api/favorites/${postId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+
+      setFavoritePosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch (err) {
+      console.error('Error removing favorite:', err);
+    }
+  };
+
+  const items = selectedTab === 'Post' ? favoritePosts : []; // update this if you add user favorites
 
   return (
     <View style={styles.container}>
@@ -38,31 +76,32 @@ export default function FavouritesPage({ navigation }) {
         >
           <Text style={[styles.tabText, selectedTab === 'Post' && styles.activeTabText]}>Post</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabItem, selectedTab === 'User' && styles.activeTabItem]}
-          onPress={() => setSelectedTab('User')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'User' && styles.activeTabText]}>User</Text>
-        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.listContainer}>
-        {items.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.listItem}
-            onPress={() => navigation.navigate('PostDetailPage', { item: item})}
-          >
-            <View style={styles.imagePlaceholder}>
-              <FontAwesome name="image" size={50} color="#8e8e93" />
-            </View>
-            <Text style={styles.itemTitle}>{item.title}</Text>
-            <TouchableOpacity style={styles.removeButton}>
-              <Text style={styles.removeButtonText}>Remove</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+<ScrollView style={styles.listContainer}>
+  {loading ? (
+    <ActivityIndicator size="large" color="#fff" />
+  ) : items.length === 0 ? (
+    <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No favorites found.</Text>
+  ) : (
+    items.map((item) => (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.listItem}
+        onPress={() => navigation.navigate('PostDetailPage', { item })}
+      >
+        <Image
+          source={{ uri: item.images?.[0] || 'https://via.placeholder.com/150' }}
+          style={styles.imagePlaceholder}
+        />
+        <Text style={styles.itemTitle}>{item.title}</Text>
+        <TouchableOpacity style={styles.removeButton} onPress={() => removeFavorite(item.id)}>
+          <Text style={styles.removeButtonText}>Remove</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    ))
+  )}
+</ScrollView>
     </View>
   );
 }

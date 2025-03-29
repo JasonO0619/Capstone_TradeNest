@@ -1,55 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { auth, firestore } from '../firebaseConfig';
-import { getDoc, doc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import HeadNav from '../header/HeadNav'; 
+import HeadNav from '../header/HeadNav';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+const DEFAULT_PROFILE_PIC_URL = "https://firebasestorage.googleapis.com/v0/b/tradenest-afc77.appspot.com/o/profile_pictures%2Fdefault_pro_pic.jpg?alt=media&token=c65c9f67-5e05-4310-91dd-9995551d9407";
+import BASE_URL from '../BaseUrl';
 
 export default function ProfilePage({ navigation }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserData = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${BASE_URL}/api/users/myProfile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          const userRef = doc(firestore, 'users', currentUser.uid);
-          const docSnap = await getDoc(userRef);
-          if (docSnap.exists()) {
-            setUser(docSnap.data());
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user profile');
       }
+
+      const data = await response.json();
+      setUser(data);
+    } catch (error) {
+      console.error('Error fetching user:', error.message);
+      Alert.alert('Error', 'Could not load user data.');
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
-    fetchUserData();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchUserData();
+    }, [])
+  );
 
- 
   const handleLogout = () => {
     Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
+      'Logout',
+      'Are you sure you want to logout?',
       [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Logout", 
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
           onPress: async () => {
-            try {
-              await signOut(auth);
-              navigation.replace("Login"); 
-            } catch (error) {
-              Alert.alert("Error", error.message);
-            }
+            await AsyncStorage.removeItem('token'); // Clear stored JWT
+            navigation.replace('Login');
           },
-          style: "destructive"
-        }
+          style: 'destructive',
+        },
       ]
     );
   };
@@ -68,10 +73,10 @@ export default function ProfilePage({ navigation }) {
       <ScrollView>
         <View style={styles.profileSection}>
           <View style={styles.avatarPlaceholderContainer}>
-            <Image 
-              source={{ uri: user?.profilePic || 'https://via.placeholder.com/100' }} 
-              style={styles.avatarImage} 
-            />
+         <Image
+          source={{ uri: `${user?.profilePicture || DEFAULT_PROFILE_PIC_URL}?t=${Date.now()}` }}
+          style={styles.avatarImage}
+        />
             <View style={styles.userInfoContainer}>
               <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
               <Text style={styles.userEmail}>{user?.email}</Text>
@@ -81,10 +86,7 @@ export default function ProfilePage({ navigation }) {
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditProfile')}>
-            <Text style={styles.buttonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.shareButton}>
-            <Text style={styles.buttonText}>Share</Text>
+            <Text style={styles.buttonText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
 
@@ -107,7 +109,6 @@ export default function ProfilePage({ navigation }) {
   );
 }
 
-
 function MenuItem({ icon, title, navigation, target }) {
   return (
     <TouchableOpacity
@@ -119,6 +120,7 @@ function MenuItem({ icon, title, navigation, target }) {
     </TouchableOpacity>
   );
 }
+
 
 
 const styles = StyleSheet.create({

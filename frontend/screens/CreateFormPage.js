@@ -1,42 +1,53 @@
 import React, { useState } from 'react';
-import { 
-  ScrollView, 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  TextInput, 
-  KeyboardAvoidingView, 
-  Platform, 
+import {
+  ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
   ActivityIndicator,
   Image,
   Alert
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { firestore, storage, auth } from "../firebaseConfig";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth } from "../firebaseConfig";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import HeadNav from '../header/HeadNav';
-import { FontAwesome } from '@expo/vector-icons';
+import BASE_URL from '../BaseUrl';
 
 export default function CreateFormPage() {
   const navigation = useNavigation();
-  const [formType, setFormType] = useState('sell'); 
+  const [typeOfPost, setTypeOfPost] = useState('sale');
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [foundDate, setFoundDate] = useState(new Date());
+  const [showFoundPicker, setShowFoundPicker] = useState(false);
+  const [lendStartDate, setLendStartDate] = useState(new Date());
+  const [lendEndDate, setLendEndDate] = useState(new Date());
+  const [activePicker, setActivePicker] = useState(null); // 'start' or 'end'
+
+  const showDatePicker = (type) => setActivePicker(type);
+  const hideDatePicker = () => setActivePicker(null);
+
+  const handleConfirmDateTime = (date) => {
+    if (activePicker === 'start') setLendStartDate(date);
+    else if (activePicker === 'end') setLendEndDate(date);
+    hideDatePicker();
+  };
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: '',
+    itemCategory: '',
     condition: '',
     price: '',
-    lendingPeriod: '',
     tradeInterest: '',
     tradeTerms: '',
     locationFound: '',
@@ -44,69 +55,60 @@ export default function CreateFormPage() {
   });
 
   const handleInputChange = (field, value) => {
-    setFormData((prevData) => ({
-      ...prevData,
-      [field]: value,
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleDateChange = (event, selectedDate) => {
+    if (event?.type === "dismissed") {
+      setShowFoundPicker(false);
+      return;
+    }
     if (selectedDate) setFoundDate(selectedDate);
-    setShowDatePicker(false);
+    setShowFoundPicker(false);
   };
 
   const pickImage = async () => {
-    if (images.length >= 5) {
-      alert('You can only upload up to 5 images.');
-      return;
-    }
-  
     Alert.alert(
-      "Upload Image", 
-      "Choose an option",
+      'Upload Image',
+      'Choose an option',
       [
         {
-          text: "Take a Photo",
+          text: 'Camera',
           onPress: async () => {
-            const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-            if (!cameraPermission.granted) {
-              alert("Camera access is required to take a photo.");
-              return;
-            }
-  
-            let result = await ImagePicker.launchCameraAsync({
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permission.granted) return Alert.alert('Permission denied to access camera.');
+
+            const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: false, 
+              allowsEditing: false,
               quality: 1,
             });
-  
+
             if (!result.canceled) {
-              setImages([...images, result.assets[0].uri]);
+              setImages((prev) => [...prev, result.assets[0].uri]);
             }
-          }
+          },
         },
         {
-          text: "Choose from Gallery",
+          text: 'Gallery',
           onPress: async () => {
-            const galleryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!galleryPermission.granted) {
-              alert("Gallery access is required to upload an image.");
-              return;
-            }
-  
-            let result = await ImagePicker.launchImageLibraryAsync({
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) return Alert.alert('Permission denied to access gallery.');
+
+            const result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: false, 
+              allowsEditing: false,
               quality: 1,
             });
-  
+
             if (!result.canceled) {
-              setImages([...images, result.assets[0].uri]);
+              setImages((prev) => [...prev, result.assets[0].uri]);
             }
-          }
+          },
         },
-        { text: "Cancel", style: "cancel" }
-      ]
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -115,116 +117,124 @@ export default function CreateFormPage() {
   };
 
   const handlePostSubmission = async () => {
-    const requiredFields = ["title", "description", "category", "condition"];
-  
-  
-    if (formType === "sell") requiredFields.push("price");
-    if (formType === "lend") requiredFields.push("lendingPeriod");
-    if (formType === "trade") requiredFields.push("tradeInterest", "tradeTerms");
-    if (formType === "lost") requiredFields.push("locationFound", "currentLocation");
-  
-    
+    const requiredFields = ["title", "description", "itemCategory", "condition"];
+    if (typeOfPost === "sell") requiredFields.push("price");
+    if (typeOfPost === "lend") {
+      if (!lendStartDate || !lendEndDate) {
+        return Alert.alert("Missing lending dates", "Please select both start and end date/time for lending.");
+      }
+    }
+    if (typeOfPost === "trade") requiredFields.push("tradeInterest", "tradeTerms");
+    if (typeOfPost === "found") requiredFields.push("locationFound", "currentLocation");
+
     const missingFields = requiredFields.filter(field => !formData[field]?.trim());
-  
     if (missingFields.length > 0) {
-      alert(`Please fill in all required fields: ${missingFields.join(", ")}`);
-      return;
+      return Alert.alert("Missing fields", `Please fill in: ${missingFields.join(", ")}`);
     }
-  
-   
+
     if (images.length === 0) {
-      alert("Please upload at least one image.");
-      return;
+      return Alert.alert("Image Required", "Please upload at least one image.");
     }
-  
+
     setLoading(true);
-  
+
     try {
       const user = auth.currentUser;
-      if (!user) {
-        alert("You must be logged in to post.");
-        setLoading(false);
-        return;
-      }
-  
-      
-      const uploadedImageUrls = await Promise.all(images.map(async (imageUri, index) => {
-        const response = await fetch(imageUri);
-        const blob = await response.blob();
-        const imageRef = ref(storage, `posts/${formType}/${user.uid}_${Date.now()}_${index}`);
-        await uploadBytes(imageRef, blob);
-        return await getDownloadURL(imageRef);
+      if (!user) throw new Error("You must be logged in.");
+
+      const token = await AsyncStorage.getItem('userToken');
+      const uploadedImageUrls = await Promise.all(images.map(async (uri) => {
+        const formDataImg = new FormData();
+        formDataImg.append('file', {
+          uri,
+          name: `image_${Date.now()}.jpg`,
+          type: 'image/jpeg'
+        });
+        formDataImg.append('postType', typeOfPost);
+
+        const res = await fetch(`${BASE_URL}/uploadFile`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formDataImg
+        });
+
+        const data = await res.json();
+        return data.url;
       }));
-  
-     
-      const postData = {
+
+      const postPayload = {
         userId: user.uid,
-        formType: formType, 
         title: formData.title.trim(),
         description: formData.description.trim(),
-        category: formData.category,
-        condition: formData.condition,
+        typeOfPost,
+        itemCategory: formData.itemCategory,
         images: uploadedImageUrls,
-        createdAt: new Date().toISOString(),
+        condition: formData.condition,
+        price: formData.price || null,
+        lendStartDate: typeOfPost === 'lend' ? lendStartDate.toISOString() : null,
+        lendEndDate: typeOfPost === 'lend' ? lendEndDate.toISOString() : null,
+        tradeInterest: formData.tradeInterest || null,
+        tradeTerms: formData.tradeTerms || null,
+        locationFound: formData.locationFound || null,
+        currentLocation: formData.currentLocation || null,
+        foundDate: typeOfPost === 'found' ? new Date(foundDate).toISOString() : null,
+        createdAt: new Date().toISOString()
       };
-  
-      if (formType === "sell") postData.price = formData.price.trim();
-      if (formType === "lend") postData.lendingPeriod = formData.lendingPeriod.trim();
-      if (formType === "trade") {
-        postData.tradeInterest = formData.tradeInterest.trim();
-        postData.tradeTerms = formData.tradeTerms.trim();
-      }
-      if (formType === "lost") {
-        postData.locationFound = formData.locationFound.trim();
-        postData.currentLocation = formData.currentLocation.trim();
-        postData.foundDate = Timestamp.fromDate(foundDate);
-      }
-  
-     
-      await addDoc(collection(firestore, `posts/${formType}/items`), postData);
-  
-      alert("Post submitted successfully!");
-      navigation.navigate(formType === "lost" ? "LostAndFoundScreen" : "SellTradeLendScreen");
-      setImages([]); 
-      setFormData({  
-        title: '',
-        description: '',
-        category: '',
-        condition: '',
-        price: '',
-        lendingPeriod: '',
-        tradeInterest: '',
-        tradeTerms: '',
-        locationFound: '',
-        currentLocation: '',
+
+      const response = await fetch(`${BASE_URL}/api/posts`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(postPayload)
       });
-  
-    } catch (error) {
-      console.error("Error adding post:", error);
-      alert("Error submitting post. Please try again.");
+
+      if (!response.ok) throw new Error("Failed to submit post.");
+
+      Alert.alert("Success", "Post created successfully!");
+      navigation.navigate(typeOfPost === "found" ? "LostAndFoundScreen" : "SellTradeLendScreen");
+
+      setFormData({
+        title: '', description: '', itemCategory: '', condition: '',
+        price: '', tradeInterest: '', tradeTerms: '',
+        locationFound: '', currentLocation: ''
+      });
+      setLendStartDate(null);
+      setLendEndDate(null);
+      setImages([]);
+      setTypeOfPost('sell');
+
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", err.message);
     }
-  
+
     setLoading(false);
   };
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
       <HeadNav navigation={navigation} currentScreen="CreateFormPage" />
      
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container}
+      contentContainerStyle={[styles.innerContainer, { paddingBottom: 30 }]}>
         
         <View style={styles.innerContainer}>
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Form Type:</Text>
             <View style={styles.pickerContainer_type}>
               <Picker
-                selectedValue={formType}
+                selectedValue={typeOfPost}
                 style={styles.picker}
-                onValueChange={(itemValue) => setFormType(itemValue)}
+                onValueChange={(itemValue) => setTypeOfPost(itemValue)}
               >
+                <Picker.Item label="(Select One)" value="" />
                 <Picker.Item label="SELL" value="sell" />
                 <Picker.Item label="LEND" value="lend" />
                 <Picker.Item label="TRADE" value="trade" />
-                <Picker.Item label="LOST & FOUND" value="lost" />
+                <Picker.Item label="LOST & FOUND" value="found" />
               </Picker>
             </View>
           </View>
@@ -259,28 +269,29 @@ export default function CreateFormPage() {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Category:</Text>
             <View style={styles.pickerContainer}>
-            <Picker selectedValue={formData.category} style={styles.picker} onValueChange={(itemValue) => handleInputChange("category", itemValue)}>
+            <Picker selectedValue={formData.itemCategory} style={styles.picker} onValueChange={(itemValue) => handleInputChange("itemCategory", itemValue)}>
+              <Picker.Item label="(Select One)" value="" />
               <Picker.Item label="Electronics" value="electronics" />
               <Picker.Item label="Furniture" value="furniture" />
               <Picker.Item label="Books" value="books" />
               <Picker.Item label="Clothing & Accessories" value="clothing" />
               <Picker.Item label="Sports & Outdoors" value="sports" />
-              <Picker.Item label="Home Appliances" value="home_appliances" />
-              <Picker.Item label="Toys & Games" value="toys_games" />
+              <Picker.Item label="Home Appliances" value="home appliances" />
+              <Picker.Item label="Toys & Games" value="toys & games" />
               <Picker.Item label="Beauty & Personal Care" value="beauty" />
               <Picker.Item label="Health & Wellness" value="health" />
-              <Picker.Item label="Musical Instruments" value="musical_instruments" />
+              <Picker.Item label="Musical Instruments" value="musical instruments" />
               <Picker.Item label="Vehicles & Auto Parts" value="vehicles" />
               <Picker.Item label="Collectibles & Art" value="collectibles" />
               <Picker.Item label="Jewelry & Watches" value="jewelry" />
-              <Picker.Item label="Baby & Kids" value="baby_kids" />
-              <Picker.Item label="Pet Supplies" value="pet_supplies" />
-              <Picker.Item label="Office Supplies" value="office_supplies" />
-              <Picker.Item label="DIY & Tools" value="diy_tools" />
-              <Picker.Item label="Garden & Outdoor" value="garden_outdoor" />
-              <Picker.Item label="Gadgets & Wearables" value="gadgets_wearables" />
+              <Picker.Item label="Baby & Kids" value="baby kids" />
+              <Picker.Item label="Pet Supplies" value="pet supplies" />
+              <Picker.Item label="Office Supplies" value="office supplies" />
+              <Picker.Item label="DIY & Tools" value="diy tools" />
+              <Picker.Item label="Garden & Outdoor" value="garden & outdoor" />
+              <Picker.Item label="Gadgets & Wearables" value="gadgets & wearables" />
               <Picker.Item label="Photography & Videography" value="photography" />
-              <Picker.Item label="Tickets & Vouchers" value="tickets_vouchers" />
+              <Picker.Item label="Tickets & Vouchers" value="tickets & vouchers" />
               <Picker.Item label="Other" value="other" />
             </Picker>
             </View>
@@ -289,17 +300,18 @@ export default function CreateFormPage() {
             <Text style={styles.label}>Condition:</Text>
             <View style={styles.pickerContainer}>
             <Picker selectedValue={formData.condition} style={styles.picker} onValueChange={(itemValue) => handleInputChange("condition", itemValue)}>
-              <Picker.Item label="Brand New (Unopened)" value="brand_new" />
-              <Picker.Item label="Like New (Barely Used)" value="like_new" />
-              <Picker.Item label="Gently Used (Minimal Signs of Wear)" value="gently_used" />
+              <Picker.Item label="(Select One)" value="" />
+              <Picker.Item label="Brand New (Unopened)" value="brand new" />
+              <Picker.Item label="Like New (Barely Used)" value="like new" />
+              <Picker.Item label="Gently Used (Minimal Signs of Wear)" value="gently used" />
               <Picker.Item label="Used (Some Wear & Tear)" value="used" />
-              <Picker.Item label="Heavily Used (Visible Damage or Wear)" value="heavily_used" />
-              <Picker.Item label="For Parts or Repair" value="for_parts" />
+              <Picker.Item label="Heavily Used (Visible Damage or Wear)" value="heavily used" />
+              <Picker.Item label="For Parts or Repair" value="for parts" />
             </Picker>
             </View>
           </View>
 
-          {formType === 'sell' && (
+          {typeOfPost === 'sell' && (
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Price ($):</Text>
               <TextInput
@@ -312,18 +324,29 @@ export default function CreateFormPage() {
             </View>
           )}
 
-          {formType === 'lend' && (
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Lending Period:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter lending period..."
-                value={formData.lendingPeriod}
-                onChangeText={(text) => handleInputChange('lendingPeriod', text)}
-              />
-            </View>
-          )}
-          {formType === 'trade' && (
+{typeOfPost === 'lend' && (
+  <>
+    <Text style={styles.label}>Lending Start Time:</Text>
+    <TouchableOpacity style={styles.dateInput} onPress={() => showDatePicker('start')}>
+      <Text style={styles.dateText}>{lendStartDate.toLocaleString()}</Text>
+    </TouchableOpacity>
+
+    <Text style={styles.label}>Lending End Time:</Text>
+    <TouchableOpacity style={styles.dateInput} onPress={() => showDatePicker('end')}>
+      <Text style={styles.dateText}>{lendEndDate.toLocaleString()}</Text>
+    </TouchableOpacity>
+
+    <DateTimePickerModal
+      isVisible={!!activePicker}
+      mode="datetime"
+      date={activePicker === 'start' ? lendStartDate : lendEndDate}
+      onConfirm={handleConfirmDateTime}
+      onCancel={hideDatePicker}
+    />
+  </>
+)}
+
+          {typeOfPost === 'trade' && (
             <>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Trade Interest:</Text>
@@ -335,7 +358,7 @@ export default function CreateFormPage() {
               </View>
             </>
           )}
-          {formType === 'lost' && (
+          {typeOfPost === 'found' && (
             <>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Location Found:</Text>
@@ -392,7 +415,7 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#1D4976',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    
   },
 
   innerContainer: { 

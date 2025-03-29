@@ -6,6 +6,7 @@ import { getDoc, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { updatePassword } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function EditProfilePage({ navigation }) {
   const [user, setUser] = useState(null);
@@ -30,7 +31,7 @@ export default function EditProfilePage({ navigation }) {
             setFirstName(userData.firstName || '');
             setLastName(userData.lastName || '');
             setEmail(userData.email || '');
-            setProfilePic(userData.profilePic);
+            setProfilePic(userData.profilePicture);
           }
         }
       } catch (error) {
@@ -43,16 +44,48 @@ export default function EditProfilePage({ navigation }) {
   }, []);
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setProfilePic(result.assets[0].uri);
-    }
+    Alert.alert(
+      'Upload Image',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permission.granted) return Alert.alert('Permission denied to access camera.');
+  
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: false,
+              quality: 1,
+            });
+  
+            if (!result.canceled) {
+              setProfilePic(result.assets[0].uri);
+            }
+          },
+        },
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) return Alert.alert('Permission denied to access gallery.');
+  
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: false,
+              quality: 1,
+            });
+  
+            if (!result.canceled) {
+              setProfilePic(result.assets[0].uri);
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
   };
 
  
@@ -60,7 +93,7 @@ export default function EditProfilePage({ navigation }) {
     try {
       const response = await fetch(uri);
       const blob = await response.blob();
-      const storageRef = ref(storage, `profile_pictures/${userId}.jpg`);
+      const storageRef = ref(storage, `profile_pictures/${userId}_${Date.now()}.jpg`);
       await uploadBytes(storageRef, blob);
       return await getDownloadURL(storageRef);
     } catch (error) {
@@ -73,40 +106,41 @@ export default function EditProfilePage({ navigation }) {
     if (!firstName || !lastName) {
       return Alert.alert("Error", "First Name and Last Name cannot be empty.");
     }
-
+  
     setUpdating(true);
     try {
       const currentUser = auth.currentUser;
       const userRef = doc(firestore, "users", currentUser.uid);
-
+  
       let updatedData = { firstName, lastName };
+  
 
-   
-      if (profilePic !== user?.profilePic) {
+      if (profilePic !== user?.profilePicture) {
         const uploadedUrl = await uploadImageToFirebase(profilePic, currentUser.uid);
         if (uploadedUrl) {
-          updatedData.profilePic = uploadedUrl;
+          updatedData.profilePicture = uploadedUrl;
+  
+
+          await AsyncStorage.setItem('profilePic', uploadedUrl);
         }
       }
-
-    
+  
       await updateDoc(userRef, updatedData);
-
-      
+  
       if (newPassword.length > 0) {
         await updatePassword(currentUser, newPassword);
         Alert.alert("Success", "Password updated successfully.");
       }
-
+  
       Alert.alert("Success", "Profile updated successfully!");
-      navigation.goBack(); 
+      navigation.goBack();
     } catch (error) {
       Alert.alert("Error", error.message);
       console.error(error);
     }
+  
     setUpdating(false);
   };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -178,7 +212,7 @@ export default function EditProfilePage({ navigation }) {
   );
 }
 
-// 🔹 Styles
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Alert, StyleSheet, TouchableOpacity, Image } from 'react-native';
 const { signInWithEmailAndPassword } = require('firebase/auth');
 const { auth } = require('../firebaseConfig'); 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -12,16 +13,25 @@ const LoginPage = ({ navigation }) => {
   };
 
   const handleSignIn = async () => {
+    console.log('[LoginPage] Sign-in attempt');
     if (!email) return showPopup('Please enter your email.');
     if (!password) return showPopup('Please enter your password.');
   
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
+      const user = userCredential.user;
+      console.log('[LoginPage] Firebase user:', user);
+
+      const token = await user.getIdToken();
+      console.log('[LoginPage] Token retrieved:', token?.slice(0, 20), '...'); // just show first part
+
+
+      await AsyncStorage.setItem('userToken', token);
+      console.log('[LoginPage] Token saved to AsyncStorage');
       showPopup('Login Successful');
-      setTimeout(() => {
-        navigation.replace('OptionsScreen');
-      }, 500); 
+      navigation.navigate('OptionsScreen'); 
+      console.log('[LoginPage] Navigating to OptionsScreen');
+
   
     } catch (error) {
       showPopup('Invalid Login Credentials.');

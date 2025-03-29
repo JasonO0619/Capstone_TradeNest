@@ -34,9 +34,25 @@ const HomeScreen = ({ navigation, route }) => {
         id: doc.id,
         ...doc.data(),
       }));
+      addFavoriteCounts(fetchedItems); // <-- enrich with counts
       setItems(fetchedItems);
       setLoading(false);
     });
+    const addFavoriteCounts = async (items) => {
+      const updatedItems = await Promise.all(
+        items.map(async (item) => {
+          try {
+            const res = await fetch(`${BASE_URL}/api/favorites/count/${item.id}`);
+            const data = await res.json();
+            return { ...item, favoriteCount: data.count || 0 };
+          } catch (err) {
+            console.warn('Failed to fetch favorite count for item:', item.id);
+            return { ...item, favoriteCount: 0 };
+          }
+        })
+      );
+      setItems(updatedItems);
+    };
 
     return () => unsubscribe(); 
   }, [selectedOption]);
