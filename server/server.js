@@ -8,7 +8,8 @@ const userRoutes = require('./routes/userRoutes');
 const postRoutes = require('./routes/postRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const messageRoutes = require('./routes/messageRoutes');
-const favoritesRoutes = require('./routes/favoritesRoutes')
+const favoritesRoutes = require('./routes/favoritesRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 const { uploadFile, uploadProfilePicture } = require('./controllers/storageController');
 
@@ -18,11 +19,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/users', userRoutes);       // /register, /profile, etc.
-app.use('/api/posts', postRoutes);       // /create, /:id, /filter
-app.use('/api/admin', adminRoutes);      // Admin-only actions
+app.use('/api/users', userRoutes);       
+app.use('/api/posts', postRoutes);      
+app.use('/api/admin', adminRoutes);     
 app.use('/api/messages', messageRoutes);   
-app.use('/api/favorites', favoritesRoutes)
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 
 app.post('/uploadFile', upload.single('file'), async (req, res) => {

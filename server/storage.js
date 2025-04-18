@@ -11,7 +11,7 @@ const uploadFile = async (filePath, postType, fileName) => {
       throw new Error('Invalid post type. Must be "sell", "trade", "lend", or "found".');
     }
 
-    const bucketPath = `posts/${postType}/${fileName}`; // ✅ Store in correct folder
+    const bucketPath = `posts/${postType}/${fileName}`; 
     const bucket = storage.bucket();
     
     await bucket.upload(filePath, { destination: bucketPath });

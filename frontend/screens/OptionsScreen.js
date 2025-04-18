@@ -4,41 +4,29 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
   Keyboard,
   TouchableWithoutFeedback,
-  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import HeadNav from '../header/HeadNav';
 
 const OptionsScreen = ({ navigation }) => {
-  const [tokenChecked, setTokenChecked] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
-  
     const checkToken = async () => {
-      console.log('[OptionsScreen] Checking for token...');
       const token = await AsyncStorage.getItem('userToken');
-      console.log('[OptionsScreen] Token:', token?.slice(0, 15) + '...');
-      if (isMounted) {
-        setTokenChecked(true);
-      }
+      setLoading(false);  
     };
-  
-    checkToken();
-  
-    return () => {
-      isMounted = false;
-      console.log('[OptionsScreen] Unmounted');
-    };
-  }, []);
 
-  if (!tokenChecked) {
+    checkToken();
+  }, []);  
+
+  if (loading) {
+    
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1D4976' }}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color="#fff" />
       </View>
     );
@@ -46,12 +34,10 @@ const OptionsScreen = ({ navigation }) => {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
+      <View style={styles.container}>
         <HeadNav navigation={navigation} currentScreen="OptionsScreen" />
-        <View style={styles.container}>
+
+        <View style={styles.contentContainer}>
           <Text style={styles.title}>Select a Home Screen to get Started:</Text>
 
           <TouchableOpacity
@@ -68,7 +54,7 @@ const OptionsScreen = ({ navigation }) => {
             <Text style={styles.buttonText}>Sell/Trade/Lend</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </TouchableWithoutFeedback>
   );
 };
@@ -77,10 +63,15 @@ const OptionsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 20,
     backgroundColor: '#1D4976',
   },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+    paddingTop: 60, 
+  },
+
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -98,6 +89,12 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 18,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1D4976',
   },
 });
 

@@ -20,18 +20,12 @@ const LoginPage = ({ navigation }) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      console.log('[LoginPage] Firebase user:', user);
 
       const token = await user.getIdToken();
-      console.log('[LoginPage] Token retrieved:', token?.slice(0, 20), '...'); // just show first part
-
 
       await AsyncStorage.setItem('userToken', token);
-      console.log('[LoginPage] Token saved to AsyncStorage');
       showPopup('Login Successful');
       navigation.navigate('OptionsScreen'); 
-      console.log('[LoginPage] Navigating to OptionsScreen');
-
   
     } catch (error) {
       showPopup('Invalid Login Credentials.');

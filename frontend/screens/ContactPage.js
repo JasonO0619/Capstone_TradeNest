@@ -67,7 +67,7 @@ export default function ContactPage({ navigation, route }) {
       const token = await AsyncStorage.getItem('userToken');
       const userId = JSON.parse(atob(token.split('.')[1])).user_id;
       setCurrentUserId(userId);
-      fetchChatUser(); // only fetch after userId is set
+      fetchChatUser(); 
     };
   
     getTokenUser();
@@ -99,7 +99,7 @@ export default function ContactPage({ navigation, route }) {
 
   const handleSendMessage = async () => {
     const token = await AsyncStorage.getItem('userToken');
-    const userId = JSON.parse(atob(token.split('.')[1])).user_id; // decode JWT
+    const userId = JSON.parse(atob(token.split('.')[1])).user_id; 
 
     if (message.trim() === '') return;
     const newMsg = {
@@ -127,7 +127,7 @@ export default function ContactPage({ navigation, route }) {
     const data = convoDoc.data();
     const current = data.finalized || {};
     if (current[userId]) {
-      delete current[userId]; // unfinalize
+      delete current[userId]; 
     } else {
       current[userId] = true;
     }
@@ -142,7 +142,6 @@ export default function ContactPage({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
   <TouchableOpacity onPress={() => navigation.goBack()}>
     <FontAwesome name="arrow-left" size={24} color="#fff" />
@@ -223,7 +222,6 @@ export default function ContactPage({ navigation, route }) {
         />
       )}
 
-      {/* Input */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}

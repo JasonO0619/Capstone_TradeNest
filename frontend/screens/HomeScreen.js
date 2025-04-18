@@ -34,7 +34,7 @@ const HomeScreen = ({ navigation, route }) => {
         id: doc.id,
         ...doc.data(),
       }));
-      addFavoriteCounts(fetchedItems); // <-- enrich with counts
+      addFavoriteCounts(fetchedItems);
       setItems(fetchedItems);
       setLoading(false);
     });

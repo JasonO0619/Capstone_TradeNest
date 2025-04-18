@@ -3,9 +3,15 @@ import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, Fla
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BASE_URL from '../BaseUrl';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
+import HeadNav from '../header/HeadNav';
+import { doc } from 'firebase/firestore';
+import { firestore } from '../firebaseConfig';
+import { getDoc, updateDoc } from 'firebase/firestore';
 
 export default function PostDetailPage({ navigation, route }) {
-  const { item } = route.params;
+  const { item, postId, otherUserId } = route.params;
   const [postedBy, setPostedBy] = useState('Loading...');
   const [posts, setPosts] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -17,43 +23,128 @@ export default function PostDetailPage({ navigation, route }) {
   const [favoriteCount, setFavoriteCount] = useState(0);
   const defaultPicUrl = 'https://via.placeholder.com/150';
   const [hasClaim, setHasClaim] = useState(false);
-const [isClaimApproved, setIsClaimApproved] = useState(false);
-const [convoId, setConvoId] = useState(null);
+  const [isClaimApproved, setIsClaimApproved] = useState(false);
+  const [convoId, setConvoId] = useState(null);
+  const isPoster = currentUserId === item.posterId;
+  const finalStatuses = ['Sold', 'Traded', 'Borrowed'];
 
-const handleLostFlow = async () => {
-  const token = await AsyncStorage.getItem('userToken'); 
-  try {
-    const convoId = await getOrCreateConversation(item.userId, item.typeOfPost, item.id);
-    setConvoId(convoId);
 
-    const claimRes = await fetch(`${BASE_URL}/api/messages/conversations/lost/${convoId}/claim`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  const handleContactPoster = async () => {
+    const token = await AsyncStorage.getItem('userToken');
+    const userId = JSON.parse(atob(token.split('.')[1])).user_id;
+    const posterId = item.posterId;
+  
+    try {
+      const res = await fetch(`${BASE_URL}/api/messages/conversations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+      const allConvos = await res.json();
 
-    if (claimRes.ok) {
-      const data = await claimRes.json();
-      setHasClaim(true);
-      setIsClaimApproved(data?.approved);
+      const existingConvo = allConvos.find(
+        (c) => c.postId === item.id && c.participants.includes(userId) && c.typeOfPost === item.typeOfPost
+      );
+  
+      let convoId;
+  
+      if (existingConvo) {
+        convoId = existingConvo.id;
+      } else {
+        const recipientId = currentUserId === item.posterId ? otherUserId : item.posterId;
+        const posterId = item.posterId;
+        console.log("✅ currentUserId:", currentUserId);
+        console.log("✅ posterId:", posterId);
+        console.log("✅ recipientId:", recipientId);
+        convoId = await getOrCreateConversation(item.typeOfPost, item.id, item.posterId);
+      }
+  
+      const screenMap = {
+        sell: 'ContactSell',
+        lend: 'ContactLend',
+        trade: 'ContactTrade',
+      };
+  
+      const screenName = screenMap[item.typeOfPost];
+  
+      if (screenName) {
+        navigation.navigate(screenName, {
+          convoId,
+          postId: item.id,
+          isPoster,
+          otherUserId: item.posterId,
+          posterId: item.posterId,
+        });
+      } else {
+        Alert.alert("Error", "Unsupported post type.");
+      }
+    } catch (err) {
+      console.error("Error handling conversation:", err);
+      Alert.alert("Error", "Unable to contact poster right now.");
     }
-  } catch (err) {
-    console.error("Error in lost flow:", err);
-  }
-};
+  };
 
-useEffect(() => {
-  if (item.typeOfPost === 'found') {
-    handleLostFlow();
-  }
-}, []);
+
+  const handleLostFlow = async () => {
+    const token = await AsyncStorage.getItem('userToken');
+    const userId = JSON.parse(atob(token.split('.')[1])).user_id;
+  
+    try {
+      const res = await fetch(`${BASE_URL}/api/messages/conversations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+      const allConvos = await res.json();
+  
+      const existing = allConvos.find(
+        (c) => c.postId === item.id &&
+               c.participants.includes(userId) &&
+               c.typeOfPost === 'found'
+      );
+  
+      let finalConvoId;
+  
+      if (existing) {
+        finalConvoId = existing.id;
+      } else {
+        finalConvoId = await getOrCreateConversation(item.typeOfPost, item.id, item.posterId);
+      }
+  
+      setConvoId(finalConvoId);
+  
+      const claimRes = await fetch(
+        `${BASE_URL}/api/messages/conversations/found/${finalConvoId}/claim`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+  
+      if (claimRes.ok) {
+        const data = await claimRes.json();
+        setHasClaim(true);
+        setIsClaimApproved(data?.approved === true);
+      } else {
+        setHasClaim(false);
+        setIsClaimApproved(false);
+      }
+    } catch (err) {
+      console.error("Error in lost flow:", err);
+    }
+  };
+  
+      useFocusEffect(
+        useCallback(() => {
+          if (item.typeOfPost === 'found') {
+            handleLostFlow();
+          }
+        }, [item])
+      );
 
   const endpointMap = {
     sell: 'sell',
     trade: 'trade',
-    lend: 'lend',
-    found: 'lost',
+    lend: 'lend'
   };
   
-
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -70,12 +161,12 @@ useEffect(() => {
         setCurrentUserId(currentUid);
   
 
-        if (profileData.uid === item.userId) {
-          setIsOwnPost(true); // ✅
+        if (profileData.uid === item.posterId) {
+          setIsOwnPost(true); 
           setPostedBy("You");
         } else {
 
-          const userRes = await fetch(`${BASE_URL}/api/users/${item.userId}`, {
+          const userRes = await fetch(`${BASE_URL}/api/users/${item.posterId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const userData = await userRes.json();
@@ -103,9 +194,14 @@ useEffect(() => {
         });
         const data = await res.json();
         const posts = data.posts || [];
-        setPosts(posts);
 
-        const index = posts.findIndex(p => p.id === item.id);
+        const activePosts = posts.filter(
+          (p) => !finalStatuses.includes(p.status)
+        );
+
+        setPosts(activePosts);
+
+        const index = activePosts.findIndex(p => p.id === item.id);
         setCurrentIndex(index !== -1 ? index : 0);
       } catch (err) {
         console.error("Error fetching posts:", err);
@@ -137,14 +233,12 @@ useEffect(() => {
 
     fetchUserInfo();
     fetchAllPostsOfType();
-    checkFavoriteStatus(); // 👈 New
-    fetchFavoriteCount();  // 👈 New
+    checkFavoriteStatus(); 
+    fetchFavoriteCount();  
   }, [item]);
 
-  const getOrCreateConversation = async (recipientId, typeOfPost, postId) => {
+  const getOrCreateConversation = async (typeOfPost, postId, posterId) => {
     try {
-      console.log("🟡 Starting conversation with:", { recipientId, typeOfPost, postId });
-  
       const token = await AsyncStorage.getItem('userToken');
       if (!token) throw new Error("Missing user token");
   
@@ -152,7 +246,7 @@ useEffect(() => {
       if (!routeType) throw new Error(`Invalid typeOfPost: ${typeOfPost}`);
   
       const url = `${BASE_URL}/api/messages/conversations/${routeType}`;
-      console.log("📡 Hitting URL:", url);
+      const body = JSON.stringify({ postId, posterId });
   
       const res = await fetch(url, {
         method: 'POST',
@@ -160,19 +254,13 @@ useEffect(() => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ recipientId, postId }),
+        body,
       });
   
       const text = await res.text();
-      console.log("📥 Raw Response:", text);
-  
-      if (!res.ok) {
-        console.error("❌ Failed to create conversation:", text);
-        throw new Error(text);
-      }
+      if (!res.ok) throw new Error(text);
   
       const data = JSON.parse(text);
-      console.log("✅ Conversation created:", data.id);
       return data.id;
     } catch (err) {
       console.error("🔥 getOrCreateConversation error:", err.message);
@@ -243,25 +331,42 @@ useEffect(() => {
   }
 
   return (
+    <View style={{ flex: 1, backgroundColor: '#1D4976' }}>
+    <HeadNav navigation={navigation} currentScreen="PostDetailPage" />
     <ScrollView contentContainerStyle={styles.container}>
-      {/* 🔹 Back Button Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <FontAwesome name="arrow-left" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      
+    <View style={styles.navContainer}>
+  <TouchableOpacity
+    style={styles.arrowButton}
+    onPress={goToPreviousPost}
+    disabled={currentIndex === 0}
+  >
+    <FontAwesome
+      name="chevron-left"
+      size={20}
+      color={currentIndex === 0 ? "#ccc" : "#fff"}
+    />
+    <Text style={[styles.arrowText, { color: currentIndex === 0 ? "#ccc" : "#fff" }]}>Prev</Text>
+  </TouchableOpacity>
+
+  <Text style={[styles.arrowText, { fontWeight: 'bold', paddingHorizontal: 10, color: '#888' }]}>
+    Post {posts.length > 0 ? currentIndex + 1 : 0} of {posts.length}
+  </Text>
+
+          <TouchableOpacity
+            style={styles.arrowButton}
+            onPress={goToNextPost}
+            disabled={currentIndex === posts.length - 1}
+          >
+            <Text style={[styles.arrowText, { color: currentIndex === posts.length - 1 ? "#ccc" : "#fff" }]}>Next</Text>
+            <FontAwesome
+              name="chevron-right"
+              size={20}
+              color={currentIndex === posts.length - 1 ? "#ccc" : "#fff"}
+            />
+          </TouchableOpacity>
+        </View>
   
-      {/* 🔹 Post Image Navigation Arrows */}
-      <View style={styles.navContainer}>
-        <TouchableOpacity onPress={goToPreviousPost} disabled={currentIndex === 0}>
-          <FontAwesome name="chevron-left" size={30} color={currentIndex === 0 ? "#ccc" : "#fff"} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={goToNextPost} disabled={currentIndex === posts.length - 1}>
-          <FontAwesome name="chevron-right" size={30} color={currentIndex === posts.length - 1 ? "#ccc" : "#fff"} />
-        </TouchableOpacity>
-      </View>
-  
-      {/* 🔹 Post Images */}
       <View style={styles.imageSection}>
         {item.images?.length > 0 ? (
           <>
@@ -285,10 +390,7 @@ useEffect(() => {
               {item.images.map((_, index) => (
                 <View
                   key={index}
-                  style={[
-                    styles.dot,
-                    imageIndex === index ? styles.activeDot : null,
-                  ]}
+                  style={[styles.dot, imageIndex === index && styles.activeDot]}
                 />
               ))}
             </View>
@@ -319,128 +421,106 @@ useEffect(() => {
         <Text style={styles.detailText}>Description: {item.description}</Text>
         <Text style={styles.detailText}>Category: {item.itemCategory}</Text>
         {item.condition && <Text style={styles.detailText}>Condition: {item.condition}</Text>}
-  
         {item.typeOfPost === 'sell' && (
           <Text style={styles.detailText}>Price: ${parseFloat(item.price).toFixed(2)}</Text>
         )}
-  
         {item.typeOfPost === 'lend' && item.lendStartDate && item.lendEndDate && (
           <Text style={styles.detailText}>
             Lending Period: {new Date(item.lendStartDate).toLocaleDateString()} → {new Date(item.lendEndDate).toLocaleDateString()}
           </Text>
         )}
-  
         {item.typeOfPost === 'trade' && (
           <Text style={styles.detailText}>Trade Interest: {item.tradeInterest}</Text>
         )}
-  
-        {item.typeOfPost === 'lost' && (
-          <>
-            {item.locationFound && (
-              <Text style={styles.detailText}>Location Found: {item.locationFound}</Text>
-            )}
-            {item.currentLocation && (
-              <Text style={styles.detailText}>Current Location: {item.currentLocation}</Text>
-            )}
-            {item.foundDate && (
-              <Text style={styles.detailText}>
-                Found Date: {new Date(item.foundDate).toDateString()}
-              </Text>
-            )}
-          </>
-        )}
-  
-        <Text style={styles.detailText}>Posted By: {currentUserId === item.userId ? "You" : postedBy}</Text>
+       <TouchableOpacity
+  onPress={() => {
+    if (currentUserId === item.posterId) {
+      navigation.navigate('ProfilePage'); 
+    } else {
+      navigation.navigate('UserPage', { userId: item.posterId }); 
+    }
+  }}
+>
+  <Text style={[styles.detailText, { fontWeight: 'bold' }]}>
+    Posted By: {currentUserId === item.posterId ? 'You' : postedBy}
+  </Text>
+</TouchableOpacity>
       </View>
   
-      {/* 🔹 Buttons Based on Ownership & Post Type */}
-      {currentUserId === item.userId ? (
-        <View style={styles.ownerButtonGroup}>
-          <TouchableOpacity
-            style={[styles.userContactButton]}
-            onPress={() => navigation.navigate("EditPostPage", { item })}
-          >
-            <Text style={styles.contactButtonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.userContactButton]}
-            onPress={() => handleDelete(item.id)}
-          >
-            <Text style={styles.contactButtonText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
+      {finalStatuses.includes(item.status) && (
+  <Text style={[styles.detailText, { color: '#ccc', fontStyle: 'italic' }]}>
+    🔒 This post has been marked as {item.status}.
+  </Text>
+)}
+
+{currentUserId === item.posterId ? (
+  !finalStatuses.includes(item.status) && (
+    <View style={styles.ownerButtonGroup}>
+      <TouchableOpacity
+        style={styles.userContactButton}
+        onPress={() => navigation.navigate("EditPostPage", { item })}
+      >
+        <Text style={styles.contactButtonText}>Edit</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.userContactButton}
+        onPress={() => handleDelete(item.id)}
+      >
+        <Text style={styles.contactButtonText}>Delete</Text>
+      </TouchableOpacity>
+    </View>
+  )
       ) : item.typeOfPost === 'found' ? (
         <>
           {!hasClaim ? (
-           <TouchableOpacity
-           style={styles.contactButton}
-           onPress={async () => {
-             try {
-               const convoId = await getOrCreateConversation(item.userId, item.typeOfPost, item.id);
-               setConvoId(convoId); // in case we need it later
-               navigation.navigate('ClaimForm', {
-                 convoId,
-                 postOwnerId: item.userId,
-               });
-             } catch (err) {
-               Alert.alert("Error", "Unable to submit claim right now.");
-             }
-           }}
-         >
-           <Text style={styles.contactButtonText}>Submit Claim Form</Text>
-         </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.contactButton}
+              onPress={async () => {
+                try {
+                  const newConvoId = await getOrCreateConversation(item.typeOfPost, item.id, item.posterId);
+                  setConvoId(newConvoId);
+                  navigation.navigate('ClaimForm', {
+                    convoId: newConvoId,
+                    postOwnerId: item.posterId,
+                  });
+                } catch (err) {
+                  Alert.alert("Error", "Unable to submit claim right now.");
+                }
+              }}
+            >
+              <Text style={styles.contactButtonText}>Submit Claim Form</Text>
+            </TouchableOpacity>
           ) : !isClaimApproved ? (
             <Text style={styles.detailText}>⏳ Waiting for claim approval...</Text>
           ) : (
-            <TouchableOpacity
-              style={styles.contactButton}
-              onPress={() => {
-                navigation.navigate('ContactLost', {
-                  convoId,
-                  postId: item.id,
-                  isPoster: false,
-                  otherUserId: item.userId,
-                });
-              }}
-            >
-              <Text style={styles.contactButtonText}>Contact Poster</Text>
-            </TouchableOpacity>
+            convoId && (
+              <TouchableOpacity
+                style={styles.contactButton}
+                onPress={() => {
+                  navigation.navigate('ContactLost', {
+                    convoId,
+                    postId: item.id,
+                    isPoster,
+                    otherUserId: item.posterId,
+                  });
+                }}
+              >
+               <TouchableOpacity style={styles.contactButton} onPress={handleContactPoster}>
+                <Text style={styles.contactButtonText}>Contact Poster</Text>
+              </TouchableOpacity>
+              </TouchableOpacity>
+            )
           )}
         </>
-      ) : (
-        <TouchableOpacity
-          style={styles.contactButton}
-          onPress={async () => {
-            try {
-              const convoId = await getOrCreateConversation(item.userId, item.typeOfPost, item.id);
-              const screenMap = {
-                sell: 'ContactSell',
-                lend: 'ContactLend',
-                trade: 'ContactTrade',
-                lost: 'ContactLost',
-              };
-              const screenName = screenMap[item.typeOfPost];
-              if (!screenName) {
-                Alert.alert("Error", "Unsupported post type.");
-                return;
-              }
-  
-              navigation.navigate(screenName, {
-                convoId,
-                postId: item.id,
-                isPoster: false,
-                otherUserId: item.userId,
-              });
-            } catch (err) {
-              console.error("Failed to start conversation:", err);
-              Alert.alert("Error", "Unable to contact poster right now.");
-            }
-          }}
-        >
-          <Text style={styles.contactButtonText}>Contact Poster</Text>
-        </TouchableOpacity>
-      )}
+) : (
+  !finalStatuses.includes(item.status) && (
+    <TouchableOpacity style={styles.contactButton} onPress={handleContactPoster}>
+      <Text style={styles.contactButtonText}>Contact Poster</Text>
+    </TouchableOpacity>
+  )
+)}
     </ScrollView>
+    </View>
   );
 }
 
@@ -448,13 +528,9 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: "#1D4976",
-    paddingTop: 40,
     paddingHorizontal: 20,
     alignItems: "center",
-  },
-  header: {
-    width: "100%",
-    marginBottom: 20,
+    paddingTop: 20,
   },
   backButton: {
     flexDirection: "row",
@@ -477,7 +553,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: "80%",
+    width: "100%",
     marginBottom: 10,
   },
   detailSection: {
@@ -564,5 +640,15 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 16,
     color: '#fff',
+  },
+  arrowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  
+  arrowText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

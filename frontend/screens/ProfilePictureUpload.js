@@ -64,8 +64,7 @@ const ProfilePictureUpload = ({ navigation, route }) => {
   
 
       const token = await user.getIdToken();
-      console.log('✅ Token saved:', token);
-      await AsyncStorage.setItem('userToken', token); // ✅ Ensure token is stored
+      await AsyncStorage.setItem('userToken', token); 
   
 
       const registerRes = await fetch(`${BASE_URL}/api/users/register`, {
@@ -78,6 +77,7 @@ const ProfilePictureUpload = ({ navigation, route }) => {
           email,
           firstName,
           lastName,
+          password,
           username: `${firstName} ${lastName}`,
           phoneNumber: '',
           profilePicture: profilePicUrl,

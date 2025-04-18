@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createUserProfile } = require('../controllers/userController');
 const { getUserById } = require('../controllers/userController');
-const verifyToken  = require('../middleware/verifyToken'); // assuming you have this
+const verifyToken  = require('../middleware/verifyToken'); 
 
 router.post('/register', verifyToken, async (req, res) => {
     try {

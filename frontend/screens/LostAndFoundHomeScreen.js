@@ -17,7 +17,7 @@ const LostAndFoundScreen = ({ navigation }) => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-
+    
         if (!data.posts || !Array.isArray(data.posts)) {
           throw new Error("Invalid data format: expected { posts: [...] }");
         }
@@ -26,8 +26,20 @@ const LostAndFoundScreen = ({ navigation }) => {
           ...item,
           foundDate: item.foundDate ? new Date(item.foundDate) : null,
         }));
-
-        setItems(parsedData);
+    
+    
+        const updatedItems = await Promise.all(parsedData.map(async (item) => {
+          const claimRes = await fetch(`${BASE_URL}/api/messages/conversations/found/${item.id}/claim`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+    
+          const claimData = await claimRes.json();
+          item.claimStatus = claimData?.approved !== null ? claimData.approved : "pending"; 
+          return item;
+        }));
+    
+        const unclaimedItems = updatedItems.filter(item => item.status !== 'Claimed');
+        setItems(unclaimedItems);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching lost posts:", error);
@@ -58,24 +70,60 @@ const LostAndFoundScreen = ({ navigation }) => {
         earlier.push(item); 
       }
     });
-  
+
     return { today, yesterday, earlierThisWeek, earlier };
   };
 
   const { today, yesterday, earlierThisWeek, earlier } = categorizePosts();
 
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'Waiting To Be Claimed':
+        return { color: 'green' };  
+      case 'Pending':
+        return { color: 'orange' }; 
+      case 'Returned':
+        return { color: 'grey' };  
+      default:
+        return { color: 'black' }; 
+    }
+  };
+
+  const updatePostStatus = async (postId, newStatus) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${BASE_URL}/api/posts/status/${postId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+  
+      const result = await response.json();
+      if (response.ok) {
+        console.log('Status updated to:', result.status);
+      } else {
+        console.error('Failed to update status:', result.error);
+      }
+    } catch (error) {
+      console.error('Error updating post status:', error);
+    }
+  };
+
   const renderPostCard = ({ item }) => {
     return (
       <TouchableOpacity
         style={styles.postCard}
-        onPress={() => navigation.navigate('PostDetailPage', { item })}
+        onPress={() => navigation.navigate('PostDetailLost', { item, postId: item.id, otherUserId: item.userId, items })} 
       >
         <Image
           source={{ uri: item.images?.[0] || 'https://via.placeholder.com/150' }}
           style={styles.postImage}
         />
         <Text style={styles.postTitle}>{item.title || 'Untitled Post'}</Text>
-        <Text style={styles.location}>{item.locationFound || 'Unknown Location'}</Text>
+       <Text style={[styles.statusText, getStatusStyle(item.status)]}>{item.status}</Text>
       </TouchableOpacity>
     );
   };
@@ -88,7 +136,7 @@ const LostAndFoundScreen = ({ navigation }) => {
         <View style={styles.categoryHeader}>
           <Text style={styles.categoryTitle}>{title}</Text>
           {data.length > 4 && (
-            <TouchableOpacity onPress={() => navigation.navigate('CategoryList', { category: 'lost' })}>
+            <TouchableOpacity onPress={() => navigation.navigate('CategoryList', { category: 'found' })}>
               <Text style={styles.viewMore}>View More →</Text>
             </TouchableOpacity>
           )}
@@ -130,7 +178,6 @@ const LostAndFoundScreen = ({ navigation }) => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {

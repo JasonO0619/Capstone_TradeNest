@@ -26,6 +26,7 @@ const SellTradeLendScreen = ({ navigation }) => {
   const [lendEndDate, setLendEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showContent, setShowContent] = useState(false);
 
   const fetchFavorites = async () => {
     try {
@@ -55,10 +56,25 @@ const SellTradeLendScreen = ({ navigation }) => {
       setFavoritePostIds(data);
   
       const counts = {};
-      setFavoriteCounts(counts);
     } catch (err) {
       console.error('❌ [Favorites] Failed to fetch favorites:', err);
       setFavoritePostIds([]);
+    }
+  };
+
+  const fetchFavoriteCounts = async (postIds) => {
+    try {
+      const counts = {};
+      await Promise.all(
+        postIds.map(async (postId) => {
+          const res = await fetch(`${BASE_URL}/api/favorites/count/${postId}`);
+          const data = await res.json();
+          counts[postId] = data.count || 0;
+        })
+      );
+      setFavoriteCounts(counts);
+    } catch (err) {
+      console.error('❌ Error fetching favorite counts:', err);
     }
   };
 
@@ -91,7 +107,10 @@ const SellTradeLendScreen = ({ navigation }) => {
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
 
-      setItems(sortedItems);
+
+
+      const postIds = sortedItems.map((item) => item.id);
+      fetchFavoriteCounts(postIds); 
       setLoading(false);
 
       types.forEach((type) => {
@@ -103,6 +122,7 @@ const SellTradeLendScreen = ({ navigation }) => {
             const activeOnly = updated.filter((item) => !isFinalStatus(item.typeOfPost, item.status));
             return [...withoutType, ...activeOnly];
           });
+          setLoading(false);
         });
       });
     };
@@ -116,11 +136,21 @@ const SellTradeLendScreen = ({ navigation }) => {
     }, [])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchFavorites().then(() => {
+        setTimeout(() => {
+          setShowContent(true);
+        }, 300); 
+      });
+    }, [])
+  );
+
   const isFinalStatus = (typeOfPost, status) => {
     const finalStates = {
       sell: 'Sold',
-      lend: 'Unavailable',
-      trade: 'Unavailable',
+      lend: 'Borrowed',
+      trade: 'Traded',
     };
     return finalStates[typeOfPost] === status;
   };
@@ -207,7 +237,7 @@ const SellTradeLendScreen = ({ navigation }) => {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
-          })} → ${new Date(item.lendEndDate).toLocaleDateString('en-US', {
+          })} to ${new Date(item.lendEndDate).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -228,8 +258,8 @@ const SellTradeLendScreen = ({ navigation }) => {
       case 'Pending':
         return styles.statusPending;
       case 'Sold':
-      case 'Unavailable':
-      case 'returned':
+      case 'Borrowed':
+      case 'Traded':
         return styles.statusFinal;
       default:
         return styles.statusDefault;
@@ -278,7 +308,7 @@ const SellTradeLendScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <HeadNav navigation={navigation} currentScreen="SellTradeLendScreen" />
-      {loading ? (
+      {loading || !showContent ? (
         <ActivityIndicator size="large" color="#fff" />
       ) : (
         <ScrollView>

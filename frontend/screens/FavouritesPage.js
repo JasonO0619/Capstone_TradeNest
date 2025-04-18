@@ -57,7 +57,7 @@ export default function FavouritesPage({ navigation }) {
     }
   };
 
-  const items = selectedTab === 'Post' ? favoritePosts : []; // update this if you add user favorites
+  const items = selectedTab === 'Post' ? favoritePosts : []; 
 
   return (
     <View style={styles.container}>

@@ -7,18 +7,21 @@ import {
   StyleSheet,
   Alert
 } from 'react-native';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { firestore } from '../firebaseConfig';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import BASE_URL from '../BaseUrl';
+import { doc, setDoc } from 'firebase/firestore';
+import { firestore } from '../firebaseConfig';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'; 
 
-const ClaimForm = ({ navigation, route, onSuccess }) => {
-const { convoId, postOwnerId } = route.params;
+const ClaimForm = ({ navigation, route }) => {
+  const { postId, postOwnerId, itemTitle } = route.params;
   const [form, setForm] = useState({
     when: '',
     where: '',
     details: ''
   });
+
 
   const handleChange = (field, value) => {
     setForm({ ...form, [field]: value });
@@ -26,6 +29,8 @@ const { convoId, postOwnerId } = route.params;
 
   const handleSubmit = async () => {
     const { when, where, details } = form;
+
+    
     if (!when || !where || !details) {
       Alert.alert("Incomplete", "Please fill out all fields.");
       return;
@@ -35,29 +40,47 @@ const { convoId, postOwnerId } = route.params;
       const token = await AsyncStorage.getItem('userToken');
       const userId = JSON.parse(atob(token.split('.')[1])).user_id;
 
-      
-      await setDoc(doc(firestore, `conversations/${convoId}/claim`, 'meta'), {
-        when,
-        where,
-        details,
-        approved: false,
-        submittedBy: userId,
-        submittedAt: new Date(),
-      });
 
-
-      await updateDoc(doc(firestore, `conversations/${convoId}`), {
-        lastMessage: '[Claim Submitted]',
-        lastMessageTimestamp: new Date(),
-        isRead: {
-          [userId]: true,
-          [postOwnerId]: false,
+      const response = await fetch(`${BASE_URL}/api/messages/conversations/submit-claim`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        lastMessageSenderId: userId,
+        body: JSON.stringify({
+          answers: { when, where, details },
+          postId,
+          recipientId: postOwnerId, 
+        }),
       });
 
-      Alert.alert("✅ Claim Submitted", "The post owner will review your claim.");
-      navigation.goBack();
+      const result = await response.json();
+      if (response.ok) {
+        const newConvoId = result.convoId;  
+      
+        const messageText = `A claim was submitted for "${itemTitle || 'your item'}" you found.`;
+      
+        await addDoc(collection(firestore, `conversations/${newConvoId}/messages`), {
+          message: messageText,
+          senderId: userId,
+          createdAt: serverTimestamp(),
+          type: 'system',
+        });
+      
+        Alert.alert("✅ Claim Submitted", "The post owner will review your claim.");
+        const postRes = await fetch(`${BASE_URL}/api/posts/${postId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const fullPost = await postRes.json();
+        
+        navigation.navigate('PostDetailLost', {
+          fromClaimSuccess: true,
+          convoData: result, 
+          item: fullPost,
+        });
+      }else {
+        Alert.alert("Error", result.error || "Something went wrong. Try again.");
+      }
 
     } catch (err) {
       console.error("❌ Claim submission error:", err);
@@ -67,10 +90,11 @@ const { convoId, postOwnerId } = route.params;
 
   return (
     <View style={styles.container}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <FontAwesome name="arrow-left" size={24} color="#fff" bottom='120' />
-        </TouchableOpacity>
-      <Text style={styles.label}>When did you lost it?</Text>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <FontAwesome name="arrow-left" size={24} color="#fff" />
+      </TouchableOpacity>
+
+      <Text style={styles.label}>When did you lose it?</Text>
       <TextInput
         style={styles.input}
         placeholder="e.g. March 25, 2pm"
@@ -78,7 +102,7 @@ const { convoId, postOwnerId } = route.params;
         onChangeText={(text) => handleChange('when', text)}
       />
 
-      <Text style={styles.label}>Where did you lost it?</Text>
+      <Text style={styles.label}>Where did you lose it?</Text>
       <TextInput
         style={styles.input}
         placeholder="e.g. Library, 3rd floor"
@@ -104,34 +128,39 @@ const { convoId, postOwnerId } = route.params;
 export default ClaimForm;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,                          
-        justifyContent: 'center',        
-        alignItems: 'center',            
-        backgroundColor: '#1D4976',     
-        padding: 16,
-      },
-    label: {
-      color: '#fff',
-      fontWeight: 'bold',
-      marginTop: 12,
-    },
-    input: {
-      backgroundColor: '#fff',
-      padding: 10,
-      borderRadius: 8,
-      marginTop: 6,
-    },
-    submitButton: {
-      backgroundColor: '#4CAF50',
-      padding: 12,
-      borderRadius: 8,
-      marginTop: 20,
-      alignItems: 'center',
-    },
-    buttonText: {
-      color: '#fff',
-      fontWeight: 'bold',
-    },
-  });
-  
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1D4976',
+    padding: 16,
+  },
+  label: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginTop: 12,
+  },
+  input: {
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
+  },
+});

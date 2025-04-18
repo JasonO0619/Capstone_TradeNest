@@ -9,80 +9,158 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { firestore } from '../firebaseConfig';
+import { where } from 'firebase/firestore';
 import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
   doc,
+  getDoc,
+  collection,
+  orderBy,
+  query,
+  onSnapshot,
   addDoc,
   updateDoc,
-  getDoc,
+  getDocs,
 } from 'firebase/firestore';
+import BASE_URL from '../BaseUrl';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Modal } from 'react-native'
 
 export default function ContactTrade({ navigation, route }) {
-  const { convoId, postId, isPoster, otherUserId } = route.params;
+  const { convoId, postId, posterId: routePosterId } = route.params;
   const [post, setPost] = useState(null);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [finalized, setFinalized] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [posterId, setPosterId] = useState(routePosterId || null);
   const [chatUser, setChatUser] = useState(null);
   const [tradeItems, setTradeItems] = useState({});
   const [showModal, setShowModal] = useState(false);
-
+  const [showReviewModal, setShowReviewModal] = useState(false);
+const [reviewText, setReviewText] = useState('');
+const [reviewRating, setReviewRating] = useState(0);
+  const [waitingForPoster, setWaitingForPoster] = useState(false);
+  const isNonPoster = currentUserId && posterId && currentUserId !== posterId;
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   useEffect(() => {
+
     const fetchData = async () => {
+      const convoRef = doc(firestore, `conversations/${convoId}`);
       const token = await AsyncStorage.getItem('userToken');
       const userId = JSON.parse(atob(token.split('.')[1])).user_id;
       setCurrentUserId(userId);
 
-      const postDoc = await getDoc(doc(firestore, 'posts', postId));
-      if (postDoc.exists()) setPost(postDoc.data());
+      try {
 
-      if (isPoster) {
-        const tradeItem = {
-          title: postDoc.data().title,
-          imageUri: postDoc.data().images?.[0] || '',
-          condition: postDoc.data().condition || 'N/A',
-        };
+        const storedReview = await AsyncStorage.getItem(`hasReviewed-${convoId}`);
+if (storedReview === 'true') {
+  setHasReviewed(true);
+}
+
+        const reviewQuery = query(
+          collection(firestore, 'reviews'),
+          where('convoId', '==', convoId),
+          where('reviewerId', '==', userId)
+        );
       
-        const convoRef = doc(firestore, `conversations/${convoId}`);
-        const convoSnap = await getDoc(convoRef);
-        const currentData = convoSnap.data();
-        const currentItems = currentData.tradeItems || {};
-      
-        if (!currentItems[userId]) {
-          await updateDoc(convoRef, {
-            [`tradeItems.${userId}`]: tradeItem,
-          });
-        }
+        const reviewSnap = await getDocs(reviewQuery);
+      if (!reviewSnap.empty) {
+        setHasReviewed(true);
+      } else {
+        setHasReviewed(false); 
       }
+    } catch (reviewErr) {
+      console.warn('⚠️ Failed to fetch reviews:', reviewErr.message || reviewErr);
+    }
+      
+      try {
+       
+let postDoc; 
 
-      const userDoc = await getDoc(doc(firestore, 'users', otherUserId));
-      if (userDoc.exists()) setChatUser(userDoc.data());
+try {
+  const postRef = doc(firestore, 'posts', postId);
+  const postDoc = await getDoc(postRef);
 
-      const convoRef = doc(firestore, `conversations/${convoId}`);
+  if (postDoc.exists()) {
+    const postData = postDoc.data();
+    setPost(postData);
+  } else {
+    console.warn('❌ Post document does NOT exist in Firestore for ID:', postId);
+  }
+} catch (err) {
+  console.error('🔥 Error while fetching post document:', err);
+}
+      
+        const convoSnap = await getDoc(convoRef);
+      
+        if (convoSnap.exists()) {
+          const convoData = convoSnap.data();
+  if (convoData?.posterId) {
+    setPosterId(convoData.posterId);
+  } else if (post && post.userId) {
+    setPosterId(post.userId); 
+  }
+      
+          const otherId = convoData.participants?.find((id) => id !== userId);
+          if (!otherId) {
+            console.warn('❌ Could not find other participant ID');
+          } else {
+            const userDoc = await getDoc(doc(firestore, 'users', otherId));
+            if (userDoc.exists()) {
+              setChatUser(userDoc.data());
+            } else {
+              console.warn('❌ User doc not found for other participant:', otherId);
+            }
+          }
+      
+          if (userId === convoData.posterId && postDoc.exists()) {
+            const tradeItem = {
+              title: postDoc.data().title,
+              imageUri: postDoc.data().images?.[0] || '',
+              condition: postDoc.data().condition || 'N/A',
+            };
+            const currentItems = convoData.tradeItems || {};
+      
+            if (!currentItems[userId]) {
+              await updateDoc(convoRef, {
+                [`tradeItems.${userId}`]: tradeItem,
+              });
+              console.log('🔄 Updated trade item for poster');
+            }
+          }
+        } else {
+          console.warn('❌ Conversation not found for ID:', convoId);
+        }
+      } catch (err) {
+        console.error('🔥 Error fetching post/convo:', err);
+      }
 
       const unsubMessages = onSnapshot(
         query(collection(firestore, `conversations/${convoId}/messages`), orderBy('timestamp', 'asc')),
         (snapshot) => {
-          const fetched = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          setMessages(fetched);
+          setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
         }
       );
 
       const unsubFinalize = onSnapshot(convoRef, (docSnap) => {
         const data = docSnap.data();
         setFinalized(data?.finalized || {});
-        setTradeItems(data?.tradeItems || {}); // NEW LINE
+        setTradeItems(data?.tradeItems || {});
+        
+
+        if (data?.finalized && data.posterId && currentUserId) {
+          const otherId = data.posterId === currentUserId
+            ? Object.keys(data.finalized).find(id => id !== currentUserId)
+            : data.posterId;
+          setWaitingForPoster(data.finalized[otherId] && !data.finalized[currentUserId]);
+        }
+
         setLoading(false);
       });
 
@@ -95,31 +173,28 @@ export default function ContactTrade({ navigation, route }) {
     fetchData();
   }, [postId, convoId]);
 
+
   const handleSendMessage = async (customMessage = null, shouldSendInterestMessage = false) => {
     const token = await AsyncStorage.getItem('userToken');
     const userId = JSON.parse(atob(token.split('.')[1])).user_id;
-  
-    const content = typeof customMessage === 'string'
-      ? customMessage.trim()
-      : message.trim();
-  
-    if (!content || typeof content !== 'string') return;
-  
+    const content = typeof customMessage === 'string' ? customMessage.trim() : message.trim();
+    if (!content) return;
+
     const newMsg = {
       senderId: userId,
       message: content,
       timestamp: new Date(),
-      type: shouldSendInterestMessage ? 'system' : 'text',
+      type: 'text',
     };
-  
+
     try {
       const convoRef = doc(firestore, `conversations/${convoId}`);
       const convoDoc = await getDoc(convoRef);
       const participants = convoDoc.data()?.participants || [];
-      const receiverId = participants.find(id => id !== userId);
-  
+      const receiverId = participants.find((id) => id !== userId);
+
       await addDoc(collection(firestore, `conversations/${convoId}/messages`), newMsg);
-  
+
       await updateDoc(convoRef, {
         lastMessage: newMsg.message,
         lastMessageTimestamp: newMsg.timestamp,
@@ -129,30 +204,66 @@ export default function ContactTrade({ navigation, route }) {
         },
         lastMessageSenderId: userId,
       });
-  
+
       setMessage('');
     } catch (err) {
       console.error('❌ Failed to send message:', err);
     }
   };
-  
+
   const handleFinalize = async () => {
     const token = await AsyncStorage.getItem('userToken');
     const userId = JSON.parse(atob(token.split('.')[1])).user_id;
     const convoRef = doc(firestore, `conversations/${convoId}`);
     const convoDoc = await getDoc(convoRef);
-    const data = convoDoc.data();
-    const current = data.finalized || {};
-    if (current[userId]) delete current[userId];
-    else current[userId] = true;
+    const current = convoDoc.data()?.finalized || {};
+
+    current[userId] = !current[userId];
     await updateDoc(convoRef, { finalized: current });
+
+    if (post?.status === 'Available') {
+      await updateDoc(doc(firestore, 'posts', postId), { status: 'Pending' });
+    }
   };
 
-  const hasFinalized = currentUserId && finalized[currentUserId];
-  const otherFinalized = otherUserId && finalized[otherUserId];
-  const isReadyToConfirm = otherFinalized && isPoster;
-  const currentTradeItem = tradeItems?.[currentUserId] || {};
-  const isTradeOfferComplete = currentTradeItem?.title && currentTradeItem?.condition && currentTradeItem?.imageUri;
+  const handleConfirmTrade = async () => {
+    try {
+      const convoRef = doc(firestore, 'conversations', convoId);
+
+      await updateDoc(doc(firestore, 'posts', postId), { status: 'Traded' });
+      await updateDoc(convoRef, { status: 'completed' });
+
+      await addDoc(collection(firestore, `conversations/${convoId}/messages`), {
+        senderId: 'system',
+        message: '✅ Trade completed successfully!',
+        timestamp: new Date(),
+        type: 'system',
+      });
+      await updateDoc(convoRef, {
+        lastMessage:  '✅ Trade completed successfully!',
+        lastMessageTimestamp: new Date(),
+        lastMessageSenderId: 'system',
+        isRead: {
+          [currentUserId]: true,         
+          [otherUserId]: false           
+        }
+      });
+
+      setShowModal(false);
+      Alert.alert('✅ Trade Confirmed!');
+    } catch (err) {
+      console.error('❌ Error finalizing trade:', err);
+    }
+  };
+
+  const isPoster = currentUserId === posterId;
+  const hasFinalized = finalized[currentUserId];
+  const otherUserId = posterId === currentUserId ? Object.keys(finalized).find(id => id !== currentUserId) : posterId;
+  const otherFinalized = finalized[otherUserId];
+  const isReadyToConfirm = isPoster && otherFinalized;
+
+
+  if (!post) return <ActivityIndicator size="large" color="#FFF" />;
 
   return (
     <View style={styles.container}>
@@ -160,7 +271,7 @@ export default function ContactTrade({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <FontAwesome name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
-        <View style={styles.userInfo}>
+        <TouchableOpacity style={styles.userInfo} onPress={() => navigation.navigate('UserPage', { userId: otherUserId })}>
           {chatUser ? (
             <>
               {chatUser.profilePicture ? (
@@ -173,46 +284,68 @@ export default function ContactTrade({ navigation, route }) {
           ) : (
             <ActivityIndicator size="small" color="#FFF" />
           )}
-        </View>
-        <TouchableOpacity onPress={() => navigation.navigate('ConfirmTradeScreen', { convoId, postId, isPoster })}>
-            <FontAwesome name="arrow-right" marginLeft={90} size={24} color="#fff" />
-            </TouchableOpacity>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('ConfirmTradeScreen', { convoId, postId, isPoster, otherUserId, posterId })}>
+          <FontAwesome name="arrow-right" marginLeft={120} size={24} color="#fff" />
+        </TouchableOpacity>
       </View>
-      
+
       <View style={styles.actionSection}>
-        <TouchableOpacity
-          style={[styles.actionButton, {
-            backgroundColor: isPoster ? (isReadyToConfirm ? '#4CAF50' : '#aaa') : '#4CAF50',
-          }]}
-          disabled={!isPoster && !isTradeOfferComplete || (isPoster && !isReadyToConfirm)}
-          onPress={async () => {
-            if (isPoster) {
-              Alert.alert('✅ Trade Ready!', 'Both parties have agreed to the trade.');
-            } else {
+        {post.status === 'Traded' || finalized?.status === 'completed' ? (
+          <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#2ecc71' }]} disabled>
+            <Text style={styles.actionButtonText}>✅ Trade Completed</Text>
+          </TouchableOpacity>
+        ) : !isPoster && !hasFinalized && post.status !== 'Pending' ? (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+            onPress={async () => {
+              const currentOffer = tradeItems?.[currentUserId];
+              const hasOffer = currentOffer?.title && currentOffer?.imageUri && currentOffer?.condition;
+
+              if (!hasOffer) {
+                Alert.alert('❗Trade Offer Missing', 'Please submit your trade offer before agreeing to trade.');
+                return;
+              }
+
               await handleFinalize();
+              setWaitingForPoster(true);
+
               if (!message.trim()) {
-                await handleSendMessage("Hi, I'm interested in your post!", true);
+                await handleSendMessage("Hi, I'm interested in trading!");
               } else {
                 await handleSendMessage();
               }
-            }
-          }}
-        >
-          <Text style={styles.actionButtonText}>{isPoster ? (isReadyToConfirm ? 'Confirm Trade' : 'Waiting...') : 'Agree to Trade'}</Text>
-        </TouchableOpacity>
+            }}
+          >
+            <Text style={styles.actionButtonText}>Agree to Trade</Text>
+          </TouchableOpacity>
+        ) : !isPoster && hasFinalized && !otherFinalized ? (
+          <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#999' }]} disabled>
+            <Text style={styles.actionButtonText}>⏳ Waiting for Trader...</Text>
+          </TouchableOpacity>
+        ) : isReadyToConfirm && post.status === 'Pending' ? (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: '#FFA500' }]}
+            onPress={() => setShowModal(true)}
+          >
+            <Text style={styles.actionButtonText}>Ready</Text>
+          </TouchableOpacity>
+        ) : null}
+
+{post.status === 'Traded' && isNonPoster && !hasReviewed && (
+  <TouchableOpacity
+    style={[styles.actionButton, { backgroundColor: '#f39c12', marginTop: 10 }]}
+    onPress={() => setShowReviewModal(true)}
+  >
+    <Text style={styles.actionButtonText}>📝 Leave a Review</Text>
+  </TouchableOpacity>
+)}
+
         <View style={styles.statusCircles}>
-          <View style={[styles.circle, hasFinalized && styles.circleGreen]} />
           <View style={[styles.circle, otherFinalized && styles.circleGreen]} />
         </View>
       </View>
-      {isPoster && hasFinalized && otherFinalized && (
-  <TouchableOpacity
-    style={[styles.actionButton, { backgroundColor: '#FFA500', marginTop: 10, width: '50%' }]}
-    onPress={() => setShowModal(true)}
-  >
-    <Text style={styles.actionButtonText}>Finish</Text>
-  </TouchableOpacity>
-)}
+
 
       {loading ? (
         <ActivityIndicator color="#fff" size="large" />
@@ -221,6 +354,14 @@ export default function ContactTrade({ navigation, route }) {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
+            if (item.type === 'system') {
+              return (
+                <View style={styles.systemMessageWrapper}>
+                  <Text style={styles.systemMessageText}>{item.message}</Text>
+                </View>
+              );
+            }
+          
             const isCurrentUser = item.senderId === currentUserId;
             return (
               <View style={[styles.messageWrapper, isCurrentUser ? styles.alignRight : styles.alignLeft]}>
@@ -246,39 +387,139 @@ export default function ContactTrade({ navigation, route }) {
           <FontAwesome name="send" size={24} color="#1D4976" />
         </TouchableOpacity>
       </View>
+
       <Modal visible={showModal} transparent animationType="slide">
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalBox}>
-      <Text style={{ fontWeight: 'bold', marginBottom: 10 }}>Review Trade Offers</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={{ fontWeight: 'bold', marginBottom: 10 }}>Review Trade Offers</Text>
+            <Text>🎁 Your Item:</Text>
+            <Text>{tradeItems?.[currentUserId]?.title || '-'}</Text>
+            {tradeItems?.[currentUserId]?.imageUri && (
+              <Image source={{ uri: tradeItems[currentUserId].imageUri }} style={{ height: 100, marginVertical: 6 }} />
+            )}
 
-      <Text>🎁 Your Item:</Text>
-      <Text>{tradeItems?.[currentUserId]?.title || '-'}</Text>
-      {tradeItems?.[currentUserId]?.imageUri && (
-        <Image source={{ uri: tradeItems[currentUserId].imageUri }} style={{ height: 100, marginVertical: 6 }} />
-      )}
+            <Text>🔁 Their Item:</Text>
+            <Text>{tradeItems?.[otherUserId]?.title || '-'}</Text>
+            {tradeItems?.[otherUserId]?.imageUri && (
+              <Image source={{ uri: tradeItems[otherUserId].imageUri }} style={{ height: 100, marginVertical: 6 }} />
+            )}
 
-      <Text>🔁 Their Item:</Text>
-      <Text>{tradeItems?.[otherUserId]?.title || '-'}</Text>
-      {tradeItems?.[otherUserId]?.imageUri && (
-        <Image source={{ uri: tradeItems[otherUserId].imageUri }} style={{ height: 100, marginVertical: 6 }} />
-      )}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+            <TouchableOpacity
+  onPress={async () => {
+    setShowModal(false);
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
-        <TouchableOpacity onPress={() => setShowModal(false)}>
-          <Text style={{ color: 'red' }}>Reject</Text>
+    const convoRef = doc(firestore, `conversations/${convoId}`);
+    const convoSnap = await getDoc(convoRef);
+    const data = convoSnap.data();
+
+
+    const updatedFinalized = {
+      ...data.finalized,
+      [currentUserId]: false, 
+      [otherUserId]: false    
+    };
+
+    await updateDoc(convoRef, {
+      finalized: updatedFinalized,
+    });
+    await updateDoc(doc(firestore, 'posts', postId), {
+      status: 'Available', 
+    });
+
+    await addDoc(collection(firestore, `conversations/${convoId}/messages`), {
+      senderId: 'system',
+      message: '❌ Trade rejected by poster. Please review your offer and initiate trade again.',
+      timestamp: new Date(),
+      type: 'system',
+    });
+    await updateDoc(convoRef, {
+      lastMessage: '❌ Trade rejected by poster. Please review your offer and initiate trade again.',
+      lastMessageTimestamp: new Date(),
+      lastMessageSenderId: 'system',
+      isRead: {
+        [currentUserId]: true,         
+        [otherUserId]: false           
+      }
+    });
+
+    Alert.alert("Trade Rejected", "You've rejected the trade. Waiting for new confirmation from the trader.");
+  }}
+>
+  <Text style={{ color: 'red' }}>Reject</Text>
+</TouchableOpacity>
+              <TouchableOpacity onPress={handleConfirmTrade}>
+                <Text style={{ color: 'green' }}>Approve</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={showReviewModal} transparent animationType="slide">
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }}>
+    <View style={{ backgroundColor: '#fff', padding: 24, borderRadius: 12, width: '80%' }}>
+      <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 10 }}>
+        Leave a review for {chatUser?.firstName} {chatUser?.lastName}
+      </Text>
+
+      <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+            <FontAwesome
+              name={star <= reviewRating ? 'star' : 'star-o'}
+              size={28}
+              color="#FFD700"
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TextInput
+        placeholder="Write something helpful..."
+        value={reviewText}
+        onChangeText={setReviewText}
+        style={{ height: 100, borderColor: '#ccc', borderWidth: 1, padding: 10, borderRadius: 8, textAlignVertical: 'top' }}
+        multiline
+      />
+
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
+        <TouchableOpacity onPress={() => setShowReviewModal(false)} style={{ marginRight: 16 }}>
+          <Text style={{ color: '#888' }}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={async () => {
-            await updateDoc(doc(firestore, 'posts', postId), { status: 'Unavailable' });
-            await updateDoc(doc(firestore, 'conversations', convoId), {
-              status: 'completed',
-              finalizedAt: new Date()
+            if (!reviewRating || !reviewText.trim()) {
+              Alert.alert('Oops!', 'Please give a rating and write something before submitting.');
+              return;
+            }
+
+            const token = await AsyncStorage.getItem('userToken');
+            const userId = JSON.parse(atob(token.split('.')[1])).user_id;
+
+            await fetch(`${BASE_URL}/api/reviews`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`, 
+              },
+              body: JSON.stringify({
+                revieweeId: posterId,
+                rating: reviewRating,
+                text: reviewText.trim(),
+                postId,
+                convoId,
+              }),
             });
-            setShowModal(false);
-            navigation.navigate('SellTradeLendScreen'); 
+
+            await AsyncStorage.setItem(`hasReviewed-${convoId}`, 'true');
+
+            Alert.alert('Thanks!', 'Your review has been submitted.');
+            setHasReviewed(true);
+            setShowReviewModal(false);
+
           }}
         >
-          <Text style={{ color: 'green' }}>Approve</Text>
+          <Text style={{ color: '#3498db', fontWeight: 'bold' }}>Submit</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -376,5 +617,19 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 10,
     width: '85%',
+  },
+  systemMessageWrapper: {
+    alignSelf: 'center',
+    backgroundColor: 'transparent',
+    paddingVertical: 6,
+  },
+  systemMessageText: {
+    color: '#fff',
+    fontStyle: 'italic',
+    fontSize: 14,
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 8,
+    borderRadius: 10,
   },
 });

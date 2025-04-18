@@ -21,17 +21,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import HeadNav from '../header/HeadNav';
 import BASE_URL from '../BaseUrl';
+import { format } from 'date-fns';
 
 export default function CreateFormPage() {
   const navigation = useNavigation();
-  const [typeOfPost, setTypeOfPost] = useState('sale');
+  const [typeOfPost, setTypeOfPost] = useState('sell');
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [foundDate, setFoundDate] = useState(new Date());
   const [showFoundPicker, setShowFoundPicker] = useState(false);
   const [lendStartDate, setLendStartDate] = useState(new Date());
   const [lendEndDate, setLendEndDate] = useState(new Date());
-  const [activePicker, setActivePicker] = useState(null); // 'start' or 'end'
+  const [activePicker, setActivePicker] = useState(null); 
+  const [showFoundModal, setShowFoundModal] = useState(false);
 
   const showDatePicker = (type) => setActivePicker(type);
   const hideDatePicker = () => setActivePicker(null);
@@ -165,7 +167,7 @@ export default function CreateFormPage() {
       }));
 
       const postPayload = {
-        userId: user.uid,
+        posterId: user.uid,
         title: formData.title.trim(),
         description: formData.description.trim(),
         typeOfPost,
@@ -381,19 +383,23 @@ export default function CreateFormPage() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>When did you find this?</Text>
-                <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
-                  <Text style={styles.dateText}>{foundDate.toDateString()}</Text>
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={foundDate}
-                    mode="date"
-                    display="default"
-                    onChange={handleDateChange}
-                  />
-                )}
-              </View>
+  <Text style={styles.label}>When did you find this?</Text>
+  <TouchableOpacity style={styles.dateInput} onPress={() => setShowFoundModal(true)}>
+  <Text style={styles.dateText}>
+  {format(foundDate, "MMMM d, yyyy 'at' h:mmaaa")}
+</Text>
+  </TouchableOpacity>
+
+  <DateTimePickerModal
+    isVisible={showFoundModal}
+    mode="datetime" 
+    onConfirm={(date) => {
+      setFoundDate(date);
+      setShowFoundModal(false);
+    }}
+    onCancel={() => setShowFoundModal(false)}
+  />
+</View>
             </>
           )}
 

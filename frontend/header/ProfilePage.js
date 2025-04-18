@@ -4,12 +4,14 @@ import { FontAwesome } from '@expo/vector-icons';
 import HeadNav from '../header/HeadNav';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+
 const DEFAULT_PROFILE_PIC_URL = "https://firebasestorage.googleapis.com/v0/b/tradenest-afc77.appspot.com/o/profile_pictures%2Fdefault_pro_pic.jpg?alt=media&token=c65c9f67-5e05-4310-91dd-9995551d9407";
 import BASE_URL from '../BaseUrl';
 
 export default function ProfilePage({ navigation }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profilePic, setProfilePic] = useState(null);  
 
   const fetchUserData = async () => {
     try {
@@ -20,13 +22,18 @@ export default function ProfilePage({ navigation }) {
         },
       });
 
-
       if (!response.ok) {
         throw new Error('Failed to fetch user profile');
       }
 
       const data = await response.json();
       setUser(data);
+      
+      
+      const savedProfilePic = await AsyncStorage.getItem('profilePic');
+      if (savedProfilePic) {
+        setProfilePic(savedProfilePic);
+      }
     } catch (error) {
       console.error('Error fetching user:', error.message);
       Alert.alert('Error', 'Could not load user data.');
@@ -50,7 +57,7 @@ export default function ProfilePage({ navigation }) {
         {
           text: 'Logout',
           onPress: async () => {
-            await AsyncStorage.removeItem('token'); // Clear stored JWT
+            await AsyncStorage.removeItem('token'); 
             navigation.replace('Login');
           },
           style: 'destructive',
@@ -73,13 +80,18 @@ export default function ProfilePage({ navigation }) {
       <ScrollView>
         <View style={styles.profileSection}>
           <View style={styles.avatarPlaceholderContainer}>
-         <Image
-          source={{ uri: `${user?.profilePicture || DEFAULT_PROFILE_PIC_URL}?t=${Date.now()}` }}
-          style={styles.avatarImage}
-        />
+            <Image
+              source={{ uri: `${profilePic || user?.profilePicture || DEFAULT_PROFILE_PIC_URL}?t=${Date.now()}` }}
+              style={styles.avatarImage}
+            />
             <View style={styles.userInfoContainer}>
               <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
               <Text style={styles.userEmail}>{user?.email}</Text>
+              {user?.trustScore !== undefined && user?.ratingCount !== undefined && (
+  <Text style={styles.trustScore}>
+    Trust Score: ⭐ {user.trustScore.toFixed(1)} ({user.ratingCount} reviews)
+  </Text>
+)}
             </View>
           </View>
         </View>
@@ -120,8 +132,6 @@ function MenuItem({ icon, title, navigation, target }) {
     </TouchableOpacity>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -180,13 +190,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 5,
   },
-  shareButton: {
-    backgroundColor: '#ea80fc',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginHorizontal: 5,
-  },
   buttonText: {
     color: '#fff',
     fontSize: 14,
@@ -224,6 +227,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 10,
   },
+  trustScore: {
+    fontSize: 14,
+    color: '#333',
+    marginTop: 5,
+    fontWeight: '600',
+  },
 });
-
-

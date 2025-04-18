@@ -54,7 +54,7 @@ export default function EditPostPage({ route, navigation }) {
           return { ...base, lendingPeriod: '', price: undefined, tradeInterest: undefined, locationFound: undefined, currentLocation: undefined, foundDate: undefined };
         case 'trade':
           return { ...base, tradeInterest: '', tradeTerms: '', price: undefined, lendingPeriod: undefined, locationFound: undefined, currentLocation: undefined, foundDate: undefined };
-        case 'lost':
+        case 'found':
           return { ...base, locationFound: '', currentLocation: '', foundDate: new Date().toISOString(), price: undefined, tradeInterest: undefined, lendingPeriod: undefined };
         default:
           return base;
@@ -149,7 +149,7 @@ export default function EditPostPage({ route, navigation }) {
       
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Form Type:</Text>
-        {item.typeOfPost === 'lost' ? (
+        {item.typeOfPost === 'found' ? (
           <Text style={styles.disabledText}>Lost & Found</Text>
         ) : (
           <View style={styles.pickerContainer_type}>
@@ -207,7 +207,6 @@ export default function EditPostPage({ route, navigation }) {
         />
       </View>
 
-      {/* CATEGORY */}
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Category:</Text>
         <View style={styles.pickerContainer}>
@@ -242,7 +241,6 @@ export default function EditPostPage({ route, navigation }) {
         </View>
       </View>
 
-      {/* CONDITION */}
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Condition:</Text>
         <View style={styles.pickerContainer}>
@@ -261,7 +259,6 @@ export default function EditPostPage({ route, navigation }) {
         </View>
       </View>
 
-      {/* DYNAMIC FIELDS */}
       {typeOfPost === 'sell' && (
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Price ($):</Text>
@@ -310,7 +307,7 @@ export default function EditPostPage({ route, navigation }) {
         </>
       )}
 
-      {typeOfPost === 'lost' && (
+      {typeOfPost === 'found' && (
         <>
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Location Found:</Text>

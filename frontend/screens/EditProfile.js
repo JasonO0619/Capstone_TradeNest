@@ -119,9 +119,10 @@ export default function EditProfilePage({ navigation }) {
         const uploadedUrl = await uploadImageToFirebase(profilePic, currentUser.uid);
         if (uploadedUrl) {
           updatedData.profilePicture = uploadedUrl;
-  
 
           await AsyncStorage.setItem('profilePic', uploadedUrl);
+
+          await AsyncStorage.setItem('profilePicChanged', 'true');
         }
       }
   

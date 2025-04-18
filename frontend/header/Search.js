@@ -36,14 +36,40 @@ export default function Search({ navigation }) {
     { label: "Sell", value: "sell" },
     { label: "Trade", value: "trade" },
     { label: "Lend", value: "lend" },
-    { label: "Found", value: "lost" },
+    { label: "Found", value: "found" },
   ];
-  const statusOptions = [
-    { label: "Filter by Status (Default)", value: null },
-    { label: "For Sale", value: "For Sale" },
-    { label: "Available", value: "Available" },
-    { label: "Pending", value: "Pending" },
-  ];
+  const statusOptions = (category) => {
+    switch (category) {
+      case 'sell':
+        return [
+          { label: 'For Sale', value: 'For Sale' },
+          { label: 'Pending', value: 'Pending' },
+          { label: 'Sold', value: 'Sold' },
+        ];
+      case 'lend':
+        return [
+          { label: 'Available', value: 'Available' },
+          { label: 'Pending', value: 'Pending' },
+          { label: 'Borrowed', value: 'Borrowed' },
+        ];
+      case 'trade':
+        return [
+          { label: 'Available', value: 'Available' },
+          { label: 'Pending', value: 'Pending' },
+          { label: 'Traded', value: 'Traded' },
+        ];
+      case 'found':
+        return [
+          { label: 'Waiting To Be Claimed', value: 'Waiting To Be Claimed' },
+          { label: 'Pending', value: 'Pending' },
+          { label: 'Claimed', value: 'Claimed' },
+        ];
+      default:
+        return [
+          { label: 'Filter by Status (Default)', value: null },
+        ];
+    }
+  };
 
   const conditionOptions = [
     { label: "Filter by Condition (Default)", value: null },
@@ -86,21 +112,27 @@ export default function Search({ navigation }) {
   }, [category, statusFilter, conditionFilter, itemCategoryFilter]);
 
   const handleSearch = async () => {
-    if (!searchText.trim()) return;
     setIsLoading(true);
     try {
       const querySnapshot = await getDocs(collection(firestore, "posts"));
       const allItems = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  
       const filtered = allItems.filter((item) => {
+        const matchesSearch = !searchText.trim() || item.title?.toLowerCase().includes(searchText.toLowerCase());
         const matchesCategory = item.typeOfPost === category;
-        const matchesSearch =
-          item.title?.toLowerCase().includes(searchText.toLowerCase()) ||
-          item.description?.toLowerCase().includes(searchText.toLowerCase());
         const matchesStatus = statusFilter ? item.status === statusFilter : true;
         const matchesCondition = conditionFilter ? item.condition === conditionFilter : true;
         const matchesItemCategory = itemCategoryFilter ? item.itemCategory === itemCategoryFilter : true;
-        return matchesCategory && matchesSearch && matchesStatus && matchesCondition && matchesItemCategory;
+  
+        return (
+          matchesSearch &&
+          matchesCategory &&
+          matchesStatus &&
+          matchesCondition &&
+          matchesItemCategory
+        );
       });
+  
       setResults(filtered);
     } catch (error) {
       console.error("Search error:", error);
@@ -109,8 +141,33 @@ export default function Search({ navigation }) {
     }
   };
 
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'sold':
+      case 'claimed':
+      case 'traded':
+      case 'borrowed':
+        return { color: '#e74c3c' }; // Red
+      case 'pending':
+        return { color: '#f39c12' }; // Orange
+      case 'available':
+      case 'for sale':
+      case 'waiting to be claimed':
+        return { color: '#2ecc71' }; // Green
+      default:
+        return { color: '#999' }; // Gray fallback
+    }
+  };
+  
+
   const renderResultItem = ({ item }) => (
-    <TouchableOpacity style={styles.resultItem} onPress={() => navigation.navigate("PostDetailPage", { item })}>
+    <TouchableOpacity
+    style={styles.resultItem}
+    onPress={() => {
+      const targetScreen = item.typeOfPost === 'found' ? 'PostDetailLost' : 'PostDetailPage';
+      navigation.navigate(targetScreen, { item });
+    }}
+  >
       <Image
         source={{ uri: item.images?.[0] || "https://via.placeholder.com/150" }}
         style={styles.resultImage}
@@ -118,6 +175,9 @@ export default function Search({ navigation }) {
       <View style={styles.resultInfo}>
         <Text style={styles.resultTitle}>{item.title}</Text>
         <Text style={styles.resultDetails}>{item.itemCategory} | {item.condition}</Text>
+        <Text style={[styles.resultStatus, getStatusStyle(item.status)]}>
+          {item.status}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -162,21 +222,20 @@ export default function Search({ navigation }) {
             </TouchableOpacity>
             {showAdvancedFilters && (
   <View style={styles.advancedFiltersContainer}>
-    {/* Status Filter */}
+
     <DropDownPicker
       placeholder="Filter by Status"
       open={openStatus}
       setOpen={setOpenStatus}
       value={statusFilter}
       setValue={setStatusFilter}
-      items={statusOptions}
+      items={statusOptions(category)}
       style={styles.dropdown}
       containerStyle={{ marginBottom: 10 }}
       zIndex={3000}
 
     />
 
-    {/* Condition Filter */}
     <DropDownPicker
       placeholder="Filter by Condition"
       open={openCondition}
@@ -189,7 +248,7 @@ export default function Search({ navigation }) {
       zIndex={2000}
     />
 
-    {/* Item Category Filter */}
+
           <DropDownPicker
             placeholder="Item Category"
             open={openItemCategory}
@@ -288,5 +347,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     width: '80%',
     alignSelf: 'center',
+  },
+  resultStatus: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 4,
   },
 });

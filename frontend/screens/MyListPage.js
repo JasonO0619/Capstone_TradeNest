@@ -32,7 +32,7 @@ export default function MyListPage({ navigation }) {
     };
   
     fetchUserPosts();
-  }, [category, userId]); // ✅ Make sure `userId` is included in the dependency array
+  }, [category, userId]); 
 
   const handleDelete = async (postId) => {
     Alert.alert("Confirm Delete", "Are you sure you want to delete this post?", [

@@ -34,6 +34,8 @@ import ContactTrade from './screens/ContactTrade';
 import ContactLost from './screens/ContactLost';
 import ConfirmTradeScreen from './screens/ConfirmTradeScreen';
 import ClaimForm from './screens/ClaimForm';
+import ViewClaim from './screens/ViewClaim';
+import PostDetailLost from './screens/PostDetailLost';
 
 
 const Stack = createStackNavigator();
@@ -65,7 +67,9 @@ const App = () => {
         <Stack.Screen name="ProfilePage" component={ProfilePage} />
         <Stack.Screen name="ItemList" component={ItemList} />
         <Stack.Screen name="Search" component={Search} />
+        <Stack.Screen name="PostDetailLost" component={PostDetailLost} />
         <Stack.Screen name="ClaimForm" component={ClaimForm} />
+        <Stack.Screen name="ViewClaim" component={ViewClaim} />
         <Stack.Screen name="ContactBase" component={ContactBase}/>
         <Stack.Screen name="ContactSell" component={ContactSell}/>
         <Stack.Screen name="ContactTrade" component={ContactTrade}/>

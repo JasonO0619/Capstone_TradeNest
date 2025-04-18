@@ -9,14 +9,12 @@ const verifyToken = async (req, res, next) => {
       return res.status(403).json({ message: 'Unauthorized: Invalid token format' });
     }
 
-    const token = authHeader.split(' ')[1]; // safely split at the space
+    const token = authHeader.split(' ')[1]; 
 
 
     const decoded = await admin.auth().verifyIdToken(token);
     req.user = decoded;
 
-
-    console.log('✅ Token verified for UID:', decoded.uid);
 
     next();
   } catch (err) {

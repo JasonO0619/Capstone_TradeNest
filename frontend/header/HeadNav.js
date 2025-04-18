@@ -10,6 +10,8 @@ import EditPostPage from '../screens/EditPostPage';
 import ItemList from '../screens/ItemList';
 import { useFocusEffect } from '@react-navigation/native';
 import BASE_URL from '../BaseUrl';
+import PostDetailPage from '../screens/PostDetailPage';
+import Notifications from './Notifications';
 
 
 
@@ -21,13 +23,14 @@ const HeadNav = ({ navigation, currentScreen }) => {
 
   useFocusEffect(
     React.useCallback(() => {
-      console.log('[HeadNav] useFocusEffect: Fetching profile picture');
-  
       const fetchProfilePicture = async () => {
         try {
           const cached = await AsyncStorage.getItem('profilePic');
-          if (cached) {
+          const hasChanged = await AsyncStorage.getItem('profilePicChanged');
+
+          if (cached && hasChanged !== 'true') {
             setProfilePic(cached);
+            return;
           }
   
           const token = await AsyncStorage.getItem('userToken');
@@ -46,6 +49,8 @@ const HeadNav = ({ navigation, currentScreen }) => {
             setProfilePicTimestamp(Date.now());
             await AsyncStorage.setItem('profilePic', pic);
             } 
+            await AsyncStorage.removeItem('profilePicChanged');
+
           } else {
             console.warn('[HeadNav] Failed to fetch profile (response not OK)');
           }
@@ -59,7 +64,6 @@ const HeadNav = ({ navigation, currentScreen }) => {
   );
 
   useEffect(() => {
-    console.log('[HeadNav] useEffect: Listening for notifications...');
     let isMounted = true;
 
     const listenForNotifications = async () => {
@@ -77,16 +81,28 @@ const HeadNav = ({ navigation, currentScreen }) => {
         if (!isMounted) return;
 
         let count = 0;
-snapshot.forEach((doc) => {
-  const data = doc.data();
+
+snapshot.forEach((docSnap) => {
+  const data = docSnap.data();
+
   if (
-    data.lastMessage &&
     data.isRead?.[userId] === false &&
-    data.lastMessageSenderId !== userId
+    data.lastMessage &&
+    data.lastMessageSenderId !== userId 
+  ) {
+    count += 1;
+  }
+
+  if (
+    data.typeOfPost === 'found' &&
+    data.claimFormSubmitted &&
+    !data.canChat && 
+    data.posterId === userId
   ) {
     count += 1;
   }
 });
+
 setUnreadCount(count);
       });
 
@@ -96,7 +112,6 @@ setUnreadCount(count);
     listenForNotifications();
 
     return () => {
-      console.log('[HeadNav] Cleaning up notification listener');
       isMounted = false;
     };
   }, []);
@@ -123,7 +138,9 @@ setUnreadCount(count);
     CreateFormPage: "Create a Post",
     OptionsScreen: "Choose a Section",
     EditPostPage: "Edit your Post",
-    ItemList: "Item Lists"
+    ItemList: "Item Lists",
+    PostDetailPage: "Item Details",
+    Notifications: "Notifications"
   };
 
   const screenTitle = screenTitleMap[currentScreen] || "";
@@ -158,12 +175,12 @@ setUnreadCount(count);
           <View>
             <Ionicons name="notifications-outline" right='4' size={30} color="#333" style={styles.icon} />
             {unreadCount > 0 && (
-  <View style={styles.notificationBadge}>
-    <Text style={styles.notificationCount}>
-      {unreadCount > 9 ? '9+' : unreadCount}
-    </Text>
-  </View>
-)}
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationCount}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
 
@@ -192,7 +209,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0F7FA',
     paddingHorizontal: 10, 
     height: '12%',
-    paddingTop: 25
+    paddingTop: 25,
+    width:'100%'
   },
   screenTitle: {
     fontSize: 18,

@@ -72,16 +72,44 @@ router.get('/type/:typeOfPost', async (req, res) => {
       const { status } = req.body;
       if (!status) return res.status(400).json({ error: 'Missing status' });
   
-      await db.collection('posts').doc(postId).update({
-        status,
+      const postRef = db.collection('posts').doc(postId);
+      const postDoc = await postRef.get();
+      const postData = postDoc.data();
+  
+      let updatedStatus = status;
+  
+      if (postData.typeOfPost === 'sell') {
+        if (status === 'Pending') updatedStatus = 'Pending';  
+        if (status === 'Sold') updatedStatus = 'Sold';      
+      }
+  
+      if (postData.typeOfPost === 'trade') {
+        if (status === 'Pending') updatedStatus = 'Pending';  
+        if (status === 'Traded') updatedStatus = 'Traded';  
+      }
+  
+      if (postData.typeOfPost === 'lend') {
+        if (status === 'Pending') updatedStatus = 'Pending';
+        if (status === 'Borrowed') updatedStatus = 'Borrowed'; 
+      }
+
+      if (postData.typeOfPost === 'found') {
+        if (status === 'Pending') updatedStatus = 'Pending';
+        if (status === 'Returned') updatedStatus = 'Returned'; 
+      }
+  
+  
+      await postRef.update({
+        status: updatedStatus,
         dateUpdated: new Date(),
       });
   
-      res.json({ message: 'Post status updated', status });
+      res.json({ message: 'Post status updated', status: updatedStatus });
     } catch (err) {
       console.error('[Update Status Error]', err);
       res.status(500).json({ error: 'Failed to update post status' });
     }
   });
+  
 
 module.exports = router;
